@@ -4,128 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LearnENG</title>
-  <style>
-    body {
-      margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #4F3A41; /* 60% */
-      color: #fff;
-      padding: 10px;
-    }
-
-    h2 {
-      font-size: 1.2em;
-      margin-bottom: 10px;
-      color: #fff;
-    }
-
-    .menu {
-      margin-bottom: 15px;
-    }
-
-    button {
-      background-color: #3B2A30; /* 30% */
-      color: #fff;
-      border: none;
-      padding: 10px 15px;
-      border-radius: 8px;
-      font-size: 1em;
-      cursor: pointer;
-      transition: background 0.3s;
-      margin: 5px 0;
-      width: 100%;
-    }
-
-    button:hover {
-      background-color: #241E20; /* 10% */
-    }
-
-    textarea, input[type="text"] {
-      width: 100%;
-      padding: 10px;
-      border-radius: 8px;
-      border: none;
-      margin: 5px 0 10px 0;
-      background: #3B2A30;
-      color: #fff;
-      font-size: 1em;
-    }
-
-    textarea::placeholder, input::placeholder {
-      color: #aaa;
-    }
-
-    .dropdown, .submenu {
-      display: none;
-      margin: 5px 0 0 10px;
-      background: #3B2A30;
-      border-radius: 8px;
-      padding: 5px;
-    }
-
-    .submenu div {
-      padding: 8px;
-      cursor: pointer;
-      border-radius: 6px;
-    }
-
-    .submenu div:hover {
-      background: #241E20;
-    }
-
-    #progressBarContainer {
-      width: 100%;
-      background: #3B2A30;
-      border-radius: 8px;
-      margin: 15px 0;
-      overflow: hidden;
-    }
-
-    #progressBar {
-      height: 20px;
-      width: 0%;
-      background: #7FC29B; /* контрастный зелёный */
-      text-align: center;
-      color: #000;
-      font-weight: bold;
-      line-height: 20px;
-      border-radius: 8px;
-    }
-
-    #progressText {
-      text-align: center;
-      margin: 5px 0;
-      font-size: 0.9em;
-      color: #ddd;
-    }
-
-    p {
-      margin: 10px 0;
-      font-size: 1.1em;
-    }
-
-    strong {
-      color: #FFD580; /* акцент */
-    }
-  </style>
 </head>
 <body>
 
 <!-- Меню -->
 <div class="menu">
   <button onclick="toggleMenu()">☰ Меню</button>
-  <div class="dropdown" id="menuDropdown">
-    <div>A1</div>
-    <div>A2</div>
-    <div class="has-sub">B1
-      <div class="submenu">
-        <div onclick="loadLesson('lessonB1_1')">Lesson 1 (Family & Relationships)</div>
-      </div>
-    </div>
-    <div>B2</div>
-    <div>C1</div>
-    <div>C2</div>
-  </div>
+  <div class="dropdown" id="menuDropdown"></div>
 </div>
 
 <!-- Прогресс -->
@@ -172,6 +57,7 @@
     <button onclick="goToNextPage()">Пропустить этап</button>
   </div>
 </div>
+
 <div id="page5" style="display:none;">
   <h2>Фаза 3: Оригинал → Перевод</h2>
   <p id="phase3-original"></p>
@@ -197,6 +83,7 @@
 let english = [];
 let transcriptions = [];
 let translated = [];
+let examples = [];
 let currentIndex = 0;
 
 // --- Меню ---
@@ -204,13 +91,46 @@ function toggleMenu() {
   const menu = document.getElementById("menuDropdown");
   menu.style.display = (menu.style.display === "none" || menu.style.display === "") ? "block" : "none";
 }
-document.querySelectorAll(".has-sub").forEach(item => {
-  item.addEventListener("click", function(e){
-    const submenu = this.querySelector(".submenu");
-    submenu.style.display = (submenu.style.display === "none" || submenu.style.display === "") ? "block" : "none";
-    e.stopPropagation();
-  });
+
+document.addEventListener("DOMContentLoaded", () => {
+  loadMenu();
 });
+
+// --- Динамическое меню из JSON ---
+function loadMenu() {
+  fetch("lessons.json")
+    .then(res => res.json())
+    .then(data => {
+      const menu = document.getElementById("menuDropdown");
+      menu.innerHTML = "";
+      Object.keys(data).forEach(levelId => {
+        const levelDiv = document.createElement("div");
+        levelDiv.classList.add("has-sub");
+        levelDiv.innerHTML = `<strong>${levelId}</strong><div class="submenu" style="display:none;"></div>`;
+        const submenu = levelDiv.querySelector(".submenu");
+
+        Object.keys(data[levelId]).forEach(lessonKey => {
+          const lessonDiv = document.createElement("div");
+          lessonDiv.classList.add("lesson-item");
+          lessonDiv.innerText = data[levelId][lessonKey].title;
+          lessonDiv.addEventListener("click", () => loadLesson(levelId, lessonKey));
+          submenu.appendChild(lessonDiv);
+        });
+
+        menu.appendChild(levelDiv);
+      });
+
+      // Подключаем клики для выпадающих подменю
+      document.querySelectorAll(".has-sub").forEach(item => {
+        item.addEventListener("click", function(e){
+          const submenu = this.querySelector(".submenu");
+          submenu.style.display = (submenu.style.display === "none" || submenu.style.display === "") ? "block" : "none";
+          e.stopPropagation();
+        });
+      });
+    })
+    .catch(err => console.error("Ошибка загрузки меню:", err));
+}
 
 // --- Рандом порядок слов ---
 function shuffleArray(array) {
@@ -252,7 +172,6 @@ function goToTranslations() {
       alert("Количество транскрипций не совпадает с количеством слов."); return;
     }
   } else { transcriptions = english.map(()=> ""); }
-
   document.getElementById("page1_5").style.display="none";
   document.getElementById("page2").style.display="block";
 }
@@ -278,7 +197,8 @@ function showNextCard(){
   const eng = english[currentIndex];
   const transcr = transcriptions[currentIndex] ? `[${transcriptions[currentIndex]}]` : "";
   const rus = translated[currentIndex];
-  document.getElementById("card").innerHTML = `<strong>${eng}</strong> ${transcr}<br>${rus}`;
+  const exampleText = (examples[currentIndex] && examples[currentIndex].length>=2)? `<br><small>Пример: ${examples[currentIndex][0]} — ${examples[currentIndex][1]}</small>` : "";
+  document.getElementById("card").innerHTML = `<strong>${eng}</strong> ${transcr}<br>${rus}${exampleText}`;
   currentIndex++;
   updateProgress(currentIndex, english.length, "Фаза 1");
 }
@@ -301,6 +221,7 @@ function nextPhase2Card(){
   document.getElementById("showAnswerBtn").style.display="inline-block";
   updateProgress(english.length - queue2.length, english.length, "Фаза 2");
 }
+
 function showAnswer(){ document.getElementById("answerSection").style.display="block"; document.getElementById("showAnswerBtn").style.display="none"; }
 function markAnswer(correct){ if(!correct) queue2.push(currentPair2); nextPhase2Card(); }
 
@@ -336,6 +257,7 @@ function startPhase4(){
 function nextDictationCard(){
   document.getElementById("dictation-feedback").innerText="";
   document.getElementById("dictation-input").value="";
+  document.getElementById("dictation-input").style.display="block";
   if(queue4.length===0){
     document.getElementById("dictation-translation").innerText="Фаза завершена! 🎉";
     document.getElementById("dictation-input").style.display="none";
@@ -365,46 +287,26 @@ function goToNextPage(){
   else if(document.getElementById("page5").style.display==="block"){ document.getElementById("page5").style.display="none"; startPhase4(); }
 }
 
-// --- Загрузка уроков ---
-function loadLesson(lessonId){
-  if(lessonId==="lessonB1_1"){
-    english = [
-      "relation","relationship","friendship","motherhood","fatherhood",
-      "relative","marriage","unmarried","engaged","separated",
-      "bride","groom","spouse","single parent","only child",
-      "family tree","mother-in-law","father-in-law","generation",
-      "to abandon","to bring up","to cheat","to leave","to separate",
-      "close","related","love at first sight"
-    ];
+// --- Загрузка урока из JSON ---
+function loadLesson(levelId, lessonKey){
+  fetch("lessons.json")
+    .then(res => res.json())
+    .then(data => {
+      const lesson = data[levelId] ? data[levelId][lessonKey] : null;
+      if(!lesson){ alert("Урок не найден!"); return; }
 
-    transcriptions = [
-      "рилéйшн","рилéйшншип","фрéндшип","мáзархуд","фáзархуд",
-      "рéлатив","мéридж","анмéрид","ингéйджд","сэпэрéйтид",
-      "брáйд","грýм","спáус","сúнгл пэрэнт","óунли чáйлд",
-      "фéмэли три","мáзар-ин-ло","фáзар-ин-ло","джэнэрéйшн",
-      "ту эбéндэн","ту брин áп","ту чúт","ту лúв","ту сэпэрéйт",
-      "клóус","рилéйтид","лáв эт фёрст сайт"
-    ];
+      english = lesson.english || [];
+      transcriptions = lesson.transcriptions || [];
+      translated = lesson.translated || [];
+      examples = lesson.example || [];
 
-    translated = [
-      "отношение","отношения","дружба","материнство","отцовство",
-      "родственник","брак","неженатый / незамужняя","помолвленный / помолвленная","разделённые, живущие раздельно",
-      "невеста","жених","супруг / супруга","один родитель","единственный ребёнок",
-      "родословная","тёща / свекровь","тесть / свёкор","поколение",
-      "покидать, оставлять","воспитывать","изменять","покидать, уходить","разделяться",
-      "близкий","связанный, родственник","любовь с первого взгляда"
-    ];
-  } else {
-    alert("Урок не найден!"); 
-    return; 
-  }
-
-  // Скрываем меню и страницы, открываем обучение
-  document.getElementById("menuDropdown").style.display="none";
-  document.querySelectorAll("div[id^='page']").forEach(div=>div.style.display="none");
-  currentIndex=0;
-  document.getElementById("page3").style.display="block";
-  showNextCard();
+      document.getElementById("menuDropdown").style.display="none";
+      document.querySelectorAll("div[id^='page']").forEach(div=>div.style.display="none");
+      currentIndex=0;
+      document.getElementById("page3").style.display="block";
+      showNextCard();
+    })
+    .catch(err => console.error("Ошибка загрузки урока:", err));
 }
 </script>
 </body>
