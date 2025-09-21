@@ -4,6 +4,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>LearnENG</title>
+  <style>
+    /* Минимальный стиль для меню и прогресса */
+    .menu { position: relative; margin-bottom: 10px; }
+    .dropdown { position: absolute; background: #f0f0f0; padding: 5px; display: none; max-height: 300px; overflow-y: auto; border: 1px solid #ccc; }
+    .submenu { margin-left: 15px; }
+    .has-sub { cursor: pointer; margin-bottom: 5px; }
+    .lesson-item { cursor: pointer; margin-bottom: 2px; }
+    #progressBarContainer { width: 100%; background: #ddd; height: 20px; margin-bottom: 10px; }
+    #progressBar { height: 100%; background: #4caf50; width: 0%; text-align: center; color: white; }
+  </style>
 </head>
 <body>
 
@@ -86,6 +96,8 @@ let translated = [];
 let examples = [];
 let currentIndex = 0;
 
+let allLessons = {}; // сюда загрузим JSON
+
 // --- Меню ---
 function toggleMenu() {
   const menu = document.getElementById("menuDropdown");
@@ -101,6 +113,7 @@ function loadMenu() {
   fetch("lessons.json")
     .then(res => res.json())
     .then(data => {
+      allLessons = data;
       const menu = document.getElementById("menuDropdown");
       menu.innerHTML = "";
       Object.keys(data).forEach(levelId => {
@@ -192,12 +205,15 @@ function startPhase1() {
 function showNextCard(){
   if(currentIndex>=english.length){
     document.getElementById("page3").style.display="none";
-    startPhase2(); return;
+    startPhase2(); 
+    return;
   }
   const eng = english[currentIndex];
   const transcr = transcriptions[currentIndex] ? `[${transcriptions[currentIndex]}]` : "";
   const rus = translated[currentIndex];
-  const exampleText = (examples[currentIndex] && examples[currentIndex].length>=2)? `<br><small>Пример: ${examples[currentIndex][0]} — ${examples[currentIndex][1]}</small>` : "";
+  const exampleText = (examples[currentIndex] && examples[currentIndex].length>=2)
+    ? `<br><small>Пример: ${examples[currentIndex][0]} — ${examples[currentIndex][1]}</small>` 
+    : "";
   document.getElementById("card").innerHTML = `<strong>${eng}</strong> ${transcr}<br>${rus}${exampleText}`;
   currentIndex++;
   updateProgress(currentIndex, english.length, "Фаза 1");
@@ -222,7 +238,10 @@ function nextPhase2Card(){
   updateProgress(english.length - queue2.length, english.length, "Фаза 2");
 }
 
-function showAnswer(){ document.getElementById("answerSection").style.display="block"; document.getElementById("showAnswerBtn").style.display="none"; }
+function showAnswer(){
+  document.getElementById("answerSection").style.display="block"; 
+  document.getElementById("showAnswerBtn").style.display="none"; 
+}
 function markAnswer(correct){ if(!correct) queue2.push(currentPair2); nextPhase2Card(); }
 
 // --- Фаза 3 ---
@@ -272,9 +291,9 @@ function checkDictation(){
   const userInput = document.getElementById("dictation-input").value.trim().toLowerCase();
   const correctAnswer = currentPair4.eng.toLowerCase();
   if(userInput === correctAnswer){
-    document.getElementById("dictation-feedback").innerText = `✅ Верно! ${currentPair4.eng} ${currentPair4.transcr ? "["+currentPair4.transcr+"]" : ""}`;
+    document.getElementById("dictation-feedback").innerHTML = `✅ Верно! ${currentPair4.eng} ${currentPair4.transcr ? "["+currentPair4.transcr+"]" : ""}`;
   } else {
-    document.getElementById("dictation-feedback").innerText = `❌ Неверно. Правильно: ${currentPair4.eng} ${currentPair4.transcr ? "["+currentPair4.transcr+"]" : ""}`;
+    document.getElementById("dictation-feedback").innerHTML = `❌ Неверно. Правильно: ${currentPair4.eng} ${currentPair4.transcr ? "["+currentPair4.transcr+"]" : ""}`;
     queue4.push(currentPair4);
   }
   setTimeout(()=>{ nextDictationCard(); }, 1000);
@@ -289,25 +308,21 @@ function goToNextPage(){
 
 // --- Загрузка урока из JSON ---
 function loadLesson(levelId, lessonKey){
-  fetch("lessons.json")
-    .then(res => res.json())
-    .then(data => {
-      const lesson = data[levelId] ? data[levelId][lessonKey] : null;
-      if(!lesson){ alert("Урок не найден!"); return; }
+  const lesson = allLessons[levelId]?.[lessonKey];
+  if(!lesson){ alert("Урок не найден!"); return; }
 
-      english = lesson.english || [];
-      transcriptions = lesson.transcriptions || [];
-      translated = lesson.translated || [];
-      examples = lesson.example || [];
+  english = lesson.english || [];
+  transcriptions = lesson.transcriptions || [];
+  translated = lesson.translated || [];
+  examples = lesson.example || [];
 
-      document.getElementById("menuDropdown").style.display="none";
-      document.querySelectorAll("div[id^='page']").forEach(div=>div.style.display="none");
-      currentIndex=0;
-      document.getElementById("page3").style.display="block";
-      showNextCard();
-    })
-    .catch(err => console.error("Ошибка загрузки урока:", err));
+  document.getElementById("menuDropdown").style.display="none";
+  document.querySelectorAll("div[id^='page']").forEach(div=>div.style.display="none");
+  currentIndex=0;
+  document.getElementById("page3").style.display="block";
+  showNextCard();
 }
 </script>
 </body>
 </html>
+
