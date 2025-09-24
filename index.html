@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Learn English</title>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; }
     .menu__btn { font-size: 20px; padding: 10px; cursor: pointer; }
-    .menu__nav { list-style: none; padding: 0; margin: 10px 0; display: none; width: 260px; border: 1px solid #ccc; }
+    .menu__nav { list-style: none; padding: 0; margin: 10px 0; display: none; width: 220px; border: 1px solid #ccc; }
     .menu__nav.show { display: block; }
     .menu__nav-item { margin: 5px 0; }
     .level-btn { font-weight: bold; cursor: pointer; width: 100%; text-align: left; }
@@ -16,98 +16,92 @@
     #lessonContent { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 10px; }
     #progressBarContainer { width: 100%; background: #eee; border: 1px solid #ccc; margin: 10px 0; }
     #progressBar { background: #4caf50; color: white; text-align: center; padding: 5px 0; width: 0%; }
-    .hidden { display:none; }
-    #lessonHeader { margin-bottom: 10px; }
-    ul.wordlist { padding-left: 20px; }
   </style>
 </head>
 <body>
 
-  <!-- Меню -->
-  <button class="menu__btn" id="menuBtn">☰ Меню</button>
-  <ul class="menu__nav" id="menuDropdown"></ul>
+<!-- Кнопка меню -->
+<button class="menu__btn" id="menuBtn">☰ Меню</button>
 
-  <!-- Содержимое урока -->
-  <div id="lessonContent">
-    <div id="lessonHeader">
-      <h2 id="lessonTitle">Выберите урок в меню</h2>
-      <div id="lessonMeta"></div>
-    </div>
+<!-- Контейнер для уровней -->
+<ul class="menu__nav" id="menuDropdown"></ul>
 
-    <!-- Блок прогресса -->
-    <div id="progressText"></div>
-    <div id="progressBarContainer">
-      <div id="progressBar">0%</div>
-    </div>
+<!-- Контейнер для содержимого урока -->
+<div id="lessonContent">
 
-    <!-- Страница 1: Ввод английских слов -->
-    <div id="page1">
-      <h3>Введите английские слова (по одному в строку)</h3>
-      <textarea id="englishWords" rows="6" cols="40" placeholder="cat&#10;dog&#10;pig"></textarea><br>
-      <button onclick="goToTranscription()">Дальше</button>
-    </div>
-
-    <!-- Страница 1.5: Ввод транскрипции -->
-    <div id="page1_5" class="hidden">
-      <h3>Введите транскрипцию (в том же порядке)</h3>
-      <textarea id="englishTranscription" rows="6" cols="40" placeholder="kæt&#10;dɒg&#10;pɪg"></textarea><br>
-      <button onclick="skipTranscription()">Пропустить транскрипцию</button>
-      <button onclick="goToTranslations()">Дальше</button>
-    </div>
-
-    <!-- Страница 2: Ввод переводов -->
-    <div id="page2" class="hidden">
-      <h3>Введите переводы (аналогично)</h3>
-      <textarea id="translatedWords" rows="6" cols="40" placeholder="кот&#10;собака&#10;свинья"></textarea><br>
-      <button onclick="startPhase1()">Начать обучение</button>
-    </div>
-
-    <!-- Страница 3: Фаза 1 -->
-    <div id="page3" class="hidden">
-      <h3>Фаза 1: Ознакомление</h3>
-      <p id="card"></p>
-      <button onclick="showNextCard()">Далее</button>
-      <button onclick="goToNextPage()">Пропустить этап</button>
-    </div>
-
-    <!-- Страница 4: Фаза 2 -->
-    <div id="page4" class="hidden">
-      <h3>Фаза 2: Перевод → Оригинал</h3>
-      <p id="phase2-translation"></p>
-      <button id="showAnswerBtn" onclick="showAnswer()">Показать ответ</button>
-      <div id="answerSection" class="hidden">
-        <p id="phase2-answer"></p>
-        <button onclick="markAnswer(true)">✅</button>
-        <button onclick="markAnswer(false)">❌</button>
-        <button onclick="goToNextPage()">Пропустить этап</button>
-      </div>
-    </div>
-
-    <!-- Страница 5: Фаза 3 -->
-    <div id="page5" class="hidden">
-      <h3>Фаза 3: Оригинал → Перевод</h3>
-      <p id="phase3-original"></p>
-      <button id="showAnswerBtn3" onclick="showAnswer3()">Показать ответ</button>
-      <div id="answerSection3" class="hidden">
-        <p id="phase3-answer"></p>
-        <button onclick="markAnswer3(true)">✅</button>
-        <button onclick="markAnswer3(false)">❌</button>
-        <button onclick="goToNextPage()">Пропустить этап</button>
-      </div>
-    </div>
-
-    <!-- Страница 6: Фаза 4 -->
-    <div id="page6" class="hidden">
-      <h3>Фаза 4: Диктант</h3>
-      <p id="dictation-translation"></p>
-      <input type="text" id="dictation-input" placeholder="Введите английское слово" autocomplete="off">
-      <button onclick="checkDictation()">Проверить</button>
-      <button onclick="goToNextPage()">Пропустить этап</button>
-      <p id="dictation-feedback"></p>
-    </div>
-
+  <!-- Блок прогресса -->
+  <div id="progressText"></div>
+  <div id="progressBarContainer">
+    <div id="progressBar">0%</div>
   </div>
 
-</body>
-</html>
+  <!-- Страница 1: Ввод английских слов -->
+  <div id="page1">
+    <h2>Введите английские слова (по одному в строку)</h2>
+    <textarea id="englishWords" rows="8" cols="30" placeholder="cat&#10;dog&#10;pig"></textarea><br>
+    <button onclick="goToTranscription()">Дальше</button>
+  </div>
 
+  <!-- Страница 1.5: Ввод транскрипции -->
+  <div id="page1_5" style="display:none;">
+    <h2>Введите транскрипцию (в том же порядке)</h2>
+    <textarea id="englishTranscription" rows="8" cols="30" placeholder="kæt&#10;dɒg&#10;pɪg"></textarea>
+    <button onclick="skipTranscription()">Пропустить транскрипцию</button>
+    <button onclick="goToTranslations()">Дальше</button>
+  </div>
+
+  <!-- Страница 2: Ввод переводов -->
+  <div id="page2" style="display:none;">
+    <h2>Введите переводы (аналогично)</h2>
+    <textarea id="translatedWords" rows="8" cols="30" placeholder="кот&#10;собака&#10;свинья"></textarea><br>
+    <button onclick="startPhase1()">Начать обучение</button>
+  </div>
+
+  <!-- Страница 3: Фаза 1 -->
+  <div id="page3" style="display:none;">
+    <h2>Фаза 1: Ознакомление</h2>
+    <p id="card"></p>
+    <button onclick="showNextCard()">Далее</button>
+    <button onclick="goToNextPage()">Пропустить этап</button>
+  </div>
+
+  <!-- Страница 4: Фаза 2 -->
+  <div id="page4" style="display:none;">
+    <h2>Фаза 2: Перевод → Оригинал</h2>
+    <p id="phase2-translation"></p>
+    <button id="showAnswerBtn" onclick="showAnswer()">Показать ответ</button>
+    <div id="answerSection" style="display:none;">
+      <p id="phase2-answer"></p>
+      <button onclick="markAnswer(true)">✅</button>
+      <button onclick="markAnswer(false)">❌</button>
+      <button onclick="goToNextPage()">Пропустить этап</button>
+    </div>
+  </div>
+
+  <!-- Страница 5: Фаза 3 -->
+  <div id="page5" style="display:none;">
+    <h2>Фаза 3: Оригинал → Перевод</h2>
+    <p id="phase3-original"></p>
+    <button id="showAnswerBtn3" onclick="showAnswer3()">Показать ответ</button>
+    <div id="answerSection3" style="display:none;">
+      <p id="phase3-answer"></p>
+      <button onclick="markAnswer3(true)">✅</button>
+      <button onclick="markAnswer3(false)">❌</button>
+      <button onclick="goToNextPage()">Пропустить этап</button>
+    </div>
+  </div>
+
+  <!-- Страница 6: Фаза 4 -->
+  <div id="page6" style="display:none;">
+    <h2>Фаза 4: Диктант</h2>
+    <p id="dictation-translation"></p>
+    <input type="text" id="dictation-input" placeholder="Введите английское слово" autocomplete="off">
+    <button onclick="checkDictation()">Проверить</button>
+    <button onclick="goToNextPage()">Пропустить этап</button>
+    <p id="dictation-feedback"></p>
+  </div>
+
+</div>
+
+<!-- Подключение JS -->
+<script src="menuLoader.js"></script>
