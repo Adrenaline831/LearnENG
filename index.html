@@ -92,92 +92,259 @@ button { margin-top: 5px; }
 </div>
 
 <script>
-let lessonsDB = {}, english=[], transcriptions=[], translated=[], currentIndex=0;
+let lessonsDB = {};
+let english = [];
+let transcriptions = [];
+let translated = [];
+let currentIndex = 0;
 
-// Меню
+// --- Меню ---
 document.getElementById("menuBtn").addEventListener("click", () => {
   document.getElementById("menuDropdown").classList.toggle("show");
 });
 
-// Загрузка JSON и генерация меню
+// --- Загрузка JSON и генерация меню ---
 fetch('lessons.json')
-  .then(res=>res.json())
-  .then(data=>{
-    lessonsDB=data;
+  .then(res => res.json())
+  .then(data => {
+    lessonsDB = data;
     generateLevelsMenu(Object.keys(lessonsDB));
-  }).catch(err=>console.error("Ошибка загрузки JSON:",err));
+  })
+  .catch(err => console.error("Ошибка загрузки JSON:", err));
 
-function generateLevelsMenu(levels){
-  const menu=document.getElementById("menuDropdown");
-  menu.innerHTML="";
-  levels.forEach(level=>{
-    const li=document.createElement("li"); li.className="menu__nav-item";
-    const btn=document.createElement("button"); btn.textContent=level; btn.className="level-btn";
-    btn.onclick=()=>toggleLessons(level,btn);
-    li.appendChild(btn); menu.appendChild(li);
+function generateLevelsMenu(levels) {
+  const menu = document.getElementById("menuDropdown");
+  menu.innerHTML = "";
+
+  levels.forEach(level => {
+    const li = document.createElement("li");
+    li.className = "menu__nav-item";
+
+    const button = document.createElement("button");
+    button.textContent = level;
+    button.className = "level-btn";
+    button.onclick = () => toggleLessons(level, button);
+
+    li.appendChild(button);
+    menu.appendChild(li);
   });
 }
 
-function toggleLessons(level, button){
-  const existing=button.nextElementSibling; if(existing){existing.remove(); return;}
-  const ul=document.createElement("ul"); ul.className="submenu";
-  const lessons=lessonsDB[level];
-  for(const key in lessons){
-    const lesson=lessons[key];
-    const li=document.createElement("li"); li.textContent=lesson.title;
-    li.onclick=()=>loadLesson(level,key);
+function toggleLessons(level, button) {
+  const existing = button.nextElementSibling;
+  if (existing) { existing.remove(); return; }
+
+  const ul = document.createElement("ul");
+  ul.className = "submenu";
+
+  const lessons = lessonsDB[level];
+  for (const lessonKey in lessons) {
+    const lesson = lessons[lessonKey];
+    const li = document.createElement("li");
+    li.textContent = lesson.title;
+    li.style.cursor = "pointer";
+    li.onclick = () => loadLesson(level, lessonKey, li);
     ul.appendChild(li);
   }
+
   button.parentNode.appendChild(ul);
 }
 
-function loadLesson(level, lessonKey){
-  const lesson=lessonsDB[level][lessonKey]; if(!lesson){alert("Урок не найден!"); return;}
-  english=lesson.english; transcriptions=lesson.transcriptions; translated=lesson.translated; currentIndex=0;
-  document.getElementById('page1').style.display='block';
-  ['page1_5','page2','page3','page4','page5','page6'].forEach(id=>document.getElementById(id).style.display='none');
-  document.getElementById("englishWords").value=english.join('\n');
-  document.getElementById("englishTranscription").value=transcriptions.join('\n');
-  document.getElementById("translatedWords").value=translated.join('\n');
+// --- Загрузка урока и переход сразу к фазе 1 ---
+function loadLesson(level, lessonKey, lessonElement) {
+  const lesson = lessonsDB[level][lessonKey];
+  if (!lesson) return console.error("Урок не найден:", level, lessonKey);
+
+  // Подсветка выбранного урока
+  document.querySelectorAll(".submenu li").forEach(li => li.style.background = "");
+  lessonElement.style.background = "#d3f0ff";
+
+  english = lesson.english || [];
+  transcriptions = lesson.transcriptions || [];
+  translated = lesson.translated || [];
+
+  // Скрыть меню
+  document.getElementById("menuDropdown").classList.remove("show");
+
+  // Скрыть все страницы
+  document.querySelectorAll("div[id^='page']").forEach(div => div.style.display = "none");
+
+  // Прокрутка к содержимому урока
+  document.getElementById("lessonContent").scrollIntoView({ behavior: "smooth" });
+
+  // Сброс прогресса и старт первой фазы
+  currentIndex = 0;
+  startPhase1();
 }
 
-function shuffleArray(array){for(let i=array.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1)); [array[i],array[j]]=[array[j],array[i]];} return array;}
-function updateProgress(done,total,phaseName){const percent=Math.round((done/total)*100); document.getElementById("progressText").innerText=`${phaseName}: ${done} / ${total}`; document.getElementById("progressBar").style.width=percent+"%"; document.getElementById("progressBar").innerText=percent+"%";}
+// --- Вспомогательные функции ---
+function shuffleArray(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
+  return array;
+}
 
-// --- Фаза 0 ---
-function goToTranscription(){const text=document.getElementById("englishWords").value.trim(); english=text.split('\n').map(w=>w.trim()).filter(w=>w); if(!english.length){alert("Введите хотя бы одно слово."); return;} document.getElementById("page1").style.display="none"; document.getElementById("page1_5").style.display="block";}
-function skipTranscription(){transcriptions=english.map(()=> ""); document.getElementById("page1_5").style.display="none"; document.getElementById("page2").style.display="block";}
-function goToTranslations(){const text=document.getElementById("englishTranscription").value.trim(); if(text){transcriptions=text.split('\n').map(w=>w.trim()); if(transcriptions.length!==english.length){alert("Количество транскрипций не совпадает с количеством слов."); return;}} else {transcriptions=english.map(()=> "");} document.getElementById("page1_5").style.display="none"; document.getElementById("page2").style.display="block";}
+function updateProgress(done, total, phaseName) {
+  const percent = Math.round((done / total) * 100);
+  document.getElementById("progressText").innerText = `${phaseName}: ${done} / ${total}`;
+  const bar = document.getElementById("progressBar");
+  bar.style.width = percent + "%";
+  bar.innerText = percent + "%";
+}
 
 // --- Фаза 1 ---
-function startPhase1(){const text=document.getElementById("translatedWords").value.trim(); translated=text.split('\n').map(w=>w.trim()).filter(w=>w); if(translated.length!==english.length){alert("Количество переводов не совпадает с количеством английских слов."); return;} document.getElementById("page2").style.display="none"; document.getElementById("page3").style.display="block"; currentIndex=0; showNextCard();}
-function showNextCard(){if(currentIndex>=english.length){document.getElementById("page3").style.display="none"; startPhase2(); return;} const eng=english[currentIndex]; const transcr=transcriptions[currentIndex]?`[${transcriptions[currentIndex]}]`:""; const rus=translated[currentIndex]; document.getElementById("card").innerHTML=`<strong>${eng}</strong> ${transcr}<br>${rus}`; currentIndex++; updateProgress(currentIndex,english.length,"Фаза 1");}
+function startPhase1() {
+  document.getElementById("page1").style.display = "none";
+  document.getElementById("page1_5").style.display = "none";
+  document.getElementById("page2").style.display = "none";
+  document.getElementById("page3").style.display = "block";
+  showNextCard();
+}
+
+function showNextCard() {
+  if (currentIndex >= english.length) {
+    document.getElementById("page3").style.display = "none";
+    startPhase2();
+    return;
+  }
+  const eng = english[currentIndex];
+  const transcr = transcriptions[currentIndex] ? `[${transcriptions[currentIndex]}]` : "";
+  const rus = translated[currentIndex];
+  const card = document.getElementById("card");
+  card.style.opacity = 0;
+  card.innerHTML = `<strong>${eng}</strong> ${transcr}<br>${rus}`;
+  setTimeout(() => { card.style.opacity = 1; }, 50);
+
+  currentIndex++;
+  updateProgress(currentIndex, english.length, "Фаза 1");
+}
 
 // --- Фаза 2 ---
-let queue2=[], currentPair2=null;
-function startPhase2(){document.getElementById("page4").style.display="block"; queue2=english.map((w,i)=>({eng:w, rus:translated[i], transcr:transcriptions[i]})); queue2=shuffleArray(queue2); nextPhase2Card();}
-function nextPhase2Card(){if(queue2.length===0){document.getElementById("page4").style.display="none"; startPhase3(); return;} currentPair2=queue2.shift(); document.getElementById("phase2-translation").innerText=currentPair2.rus; document.getElementById("phase2-answer").innerText=`${currentPair2.eng} ${currentPair2.transcr?`[${currentPair2.transcr}]`:''}`; document.getElementById("answerSection").style.display="none"; document.getElementById("showAnswerBtn").style.display="inline-block"; updateProgress(english.length-queue2.length,english.length,"Фаза 2");}
-function showAnswer(){document.getElementById("answerSection").style.display="block"; document.getElementById("showAnswerBtn").style.display="none";}
-function markAnswer(correct){if(!correct) queue2.push(currentPair2); nextPhase2Card();}
+let queue2 = [], currentPair2 = null;
+
+function startPhase2() {
+  document.getElementById("page4").style.display = "block";
+  queue2 = english.map((w, i) => ({ eng: w, rus: translated[i], transcr: transcriptions[i] }));
+  queue2 = shuffleArray(queue2);
+  nextPhase2Card();
+}
+
+function nextPhase2Card() {
+  if (queue2.length === 0) {
+    document.getElementById("page4").style.display = "none";
+    startPhase3();
+    return;
+  }
+  currentPair2 = queue2.shift();
+  document.getElementById("phase2-translation").innerText = currentPair2.rus;
+  document.getElementById("phase2-answer").innerText = `${currentPair2.eng} ${currentPair2.transcr ? "[" + currentPair2.transcr + "]" : ""}`;
+  document.getElementById("answerSection").style.display = "none";
+  document.getElementById("showAnswerBtn").style.display = "inline-block";
+  updateProgress(english.length - queue2.length, english.length, "Фаза 2");
+}
+
+function showAnswer() {
+  document.getElementById("answerSection").style.display = "block";
+  document.getElementById("showAnswerBtn").style.display = "none";
+}
+
+function markAnswer(correct) {
+  if (!correct) queue2.push(currentPair2);
+  nextPhase2Card();
+}
 
 // --- Фаза 3 ---
-let queue3=[], currentPair3=null;
-function startPhase3(){document.getElementById("page5").style.display="block"; queue3=english.map((w,i)=>({eng:w, rus:translated[i], transcr:transcriptions[i]})); queue3=shuffleArray(queue3); nextPhase3Card();}
-function nextPhase3Card(){if(queue3.length===0){startPhase4(); return;} currentPair3=queue3.shift(); document.getElementById("phase3-original").innerText=currentPair3.eng; document.getElementById("phase3-answer").innerText=`${currentPair3.rus} ${currentPair3.transcr?`[${currentPair3.transcr}]`:''}`; document.getElementById("answerSection3").style.display="none"; document.getElementById("showAnswerBtn3").style.display="inline-block"; updateProgress(english.length-queue3.length,english.length,"Фаза 3");}
-function showAnswer3(){document.getElementById("answerSection3").style.display="block"; document.getElementById("showAnswerBtn3").style.display="none";}
-function markAnswer3(correct){if(!correct) queue3.push(currentPair3); nextPhase3Card();}
+let queue3 = [], currentPair3 = null;
+
+function startPhase3() {
+  document.getElementById("page5").style.display = "block";
+  queue3 = english.map((w, i) => ({ eng: w, rus: translated[i], transcr: transcriptions[i] }));
+  queue3 = shuffleArray(queue3);
+  nextPhase3Card();
+}
+
+function nextPhase3Card() {
+  if (queue3.length === 0) {
+    document.getElementById("page5").style.display = "none";
+    startPhase4();
+    return;
+  }
+  currentPair3 = queue3.shift();
+  document.getElementById("phase3-original").innerText = currentPair3.eng;
+  document.getElementById("phase3-answer").innerText = `${currentPair3.rus} ${currentPair3.transcr ? "[" + currentPair3.transcr + "]" : ""}`;
+  document.getElementById("answerSection3").style.display = "none";
+  document.getElementById("showAnswerBtn3").style.display = "inline-block";
+  updateProgress(english.length - queue3.length, english.length, "Фаза 3");
+}
+
+function showAnswer3() {
+  document.getElementById("answerSection3").style.display = "block";
+  document.getElementById("showAnswerBtn3").style.display = "none";
+}
+
+function markAnswer3(correct) {
+  if (!correct) queue3.push(currentPair3);
+  nextPhase3Card();
+}
 
 // --- Фаза 4 ---
-let queue4=[], currentPair4=null;
-function startPhase4(){document.getElementById("page5").style.display="none"; document.getElementById("page6").style.display="block"; queue4=english.map((w,i)=>({eng:w, rus:translated[i], transcr:transcriptions[i]})); queue4=shuffleArray(queue4); nextDictationCard();}
-function nextDictationCard(){document.getElementById("dictation-feedback").innerText=""; document.getElementById("dictation-input").value=""; document.getElementById("dictation-input").style.display="inline-block"; if(queue4.length===0){document.getElementById("dictation-translation").innerText="Фаза завершена! 🎉"; document.getElementById("dictation-input").style.display="none"; updateProgress(english.length,english.length,"Фаза 4"); return;} currentPair4=queue4.shift(); document.getElementById("dictation-translation").innerText=currentPair4.rus; updateProgress(english.length-queue4.length,english.length,"Фаза 4");}
-function checkDictation(){const userInput=document.getElementById("dictation-input").value.trim().toLowerCase(); const correctAnswer=currentPair4.eng.toLowerCase(); if(userInput===correctAnswer){document.getElementById("dictation-feedback").innerText=`✅ Верно! ${currentPair4.eng} ${currentPair4.transcr?`[${currentPair4.transcr}]`:''}`;}else{document.getElementById("dictation-feedback").innerText=`❌ Неверно. Правильно: ${currentPair4.eng} ${currentPair4.transcr?`[${currentPair4.transcr}]`:''}`; queue4.push(currentPair4);} setTimeout(()=>{nextDictationCard();},1000);}
+let queue4 = [], currentPair4 = null;
 
-// Пропуск этапа
-function goToNextPage(){if(document.getElementById("page3").style.display==="block"){document.getElementById("page3").style.display="none"; startPhase2();}
-else if(document.getElementById("page4").style.display==="block"){document.getElementById("page4").style.display="none"; startPhase3();}
-else if(document.getElementById("page5").style.display==="block"){document.getElementById("page5").style.display="none"; startPhase4();}}
+function startPhase4() {
+  document.getElementById("page5").style.display = "none";
+  document.getElementById("page6").style.display = "block";
+  queue4 = english.map((w, i) => ({ eng: w, rus: translated[i], transcr: transcriptions[i] }));
+  queue4 = shuffleArray(queue4);
+  nextDictationCard();
+}
+
+function nextDictationCard() {
+  document.getElementById("dictation-feedback").innerText = "";
+  document.getElementById("dictation-input").value = "";
+  document.getElementById("dictation-input").style.display = "inline-block";
+
+  if (queue4.length === 0) {
+    document.getElementById("dictation-translation").innerText = "Фаза завершена! 🎉";
+    document.getElementById("dictation-input").style.display = "none";
+    updateProgress(english.length, english.length, "Фаза 4");
+    return;
+  }
+
+  currentPair4 = queue4.shift();
+  document.getElementById("dictation-translation").innerText = currentPair4.rus;
+  updateProgress(english.length - queue4.length, english.length, "Фаза 4");
+}
+
+function checkDictation() {
+  const userInput = document.getElementById("dictation-input").value.trim().toLowerCase();
+  const correctAnswer = currentPair4.eng.toLowerCase();
+  if (userInput === correctAnswer) {
+    document.getElementById("dictation-feedback").innerText = `✅ Верно! ${currentPair4.eng} ${currentPair4.transcr ? "[" + currentPair4.transcr + "]" : ""}`;
+  } else {
+    document.getElementById("dictation-feedback").innerText = `❌ Неверно. Правильно: ${currentPair4.eng} ${currentPair4.transcr ? "[" + currentPair4.transcr + "]" : ""}`;
+    queue4.push(currentPair4);
+  }
+  setTimeout(() => { nextDictationCard(); }, 1000);
+}
+
+// --- Кнопка "Пропустить этап" ---
+function goToNextPage() {
+  if (document.getElementById("page3").style.display === "block") {
+    document.getElementById("page3").style.display = "none";
+    startPhase2();
+  } else if (document.getElementById("page4").style.display === "block") {
+    document.getElementById("page4").style.display = "none";
+    startPhase3();
+  } else if (document.getElementById("page5").style.display === "block") {
+    document.getElementById("page5").style.display = "none";
+    startPhase4();
+  }
+}
+
 </script>
 
 </body>
 </html>
+
