@@ -27,36 +27,18 @@ button { margin-top: 5px; }
 
 <div id="lessonContent">
   <div id="progressText"></div>
-  <div id="progressBarContainer">
-    <div id="progressBar">0%</div>
-  </div>
+  <div id="progressBarContainer"><div id="progressBar">0%</div></div>
 
-  <div id="page1">
-    <h2>Введите английские слова (по одному в строку)</h2>
-    <textarea id="englishWords" rows="8" placeholder="cat&#10;dog&#10;pig"></textarea>
-    <button onclick="goToTranscription()">Дальше</button>
-  </div>
-
-  <div id="page1_5" style="display:none;">
-    <h2>Введите транскрипцию (в том же порядке)</h2>
-    <textarea id="englishTranscription" rows="8" placeholder="kæt&#10;dɒg&#10;pɪg"></textarea>
-    <button onclick="skipTranscription()">Пропустить транскрипцию</button>
-    <button onclick="goToTranslations()">Дальше</button>
-  </div>
-
-  <div id="page2" style="display:none;">
-    <h2>Введите переводы (аналогично)</h2>
-    <textarea id="translatedWords" rows="8" placeholder="кот&#10;собака&#10;свинья"></textarea>
-    <button onclick="startPhase1()">Начать обучение</button>
-  </div>
-
+  <!-- Фаза 1 -->
   <div id="page3" style="display:none;">
     <h2>Фаза 1: Ознакомление</h2>
     <p id="card"></p>
     <button onclick="showNextCard()">Далее</button>
+    <button onclick="repeatPhase(1)">🔁 Повторить этап</button>
     <button onclick="goToNextPage()">Пропустить этап</button>
   </div>
 
+  <!-- Фаза 2 -->
   <div id="page4" style="display:none;">
     <h2>Фаза 2: Перевод → Оригинал</h2>
     <p id="phase2-translation"></p>
@@ -65,10 +47,12 @@ button { margin-top: 5px; }
       <p id="phase2-answer"></p>
       <button onclick="markAnswer(true)">✅</button>
       <button onclick="markAnswer(false)">❌</button>
+      <button onclick="repeatPhase(2)">🔁 Повторить этап</button>
       <button onclick="goToNextPage()">Пропустить этап</button>
     </div>
   </div>
 
+  <!-- Фаза 3 -->
   <div id="page5" style="display:none;">
     <h2>Фаза 3: Оригинал → Перевод</h2>
     <p id="phase3-original"></p>
@@ -77,15 +61,19 @@ button { margin-top: 5px; }
       <p id="phase3-answer"></p>
       <button onclick="markAnswer3(true)">✅</button>
       <button onclick="markAnswer3(false)">❌</button>
+      <button onclick="repeatPhase(3)">🔁 Повторить этап</button>
       <button onclick="goToNextPage()">Пропустить этап</button>
     </div>
   </div>
 
+  <!-- Фаза 4 -->
   <div id="page6" style="display:none;">
     <h2>Фаза 4: Диктант</h2>
     <p id="dictation-translation"></p>
     <input type="text" id="dictation-input" placeholder="Введите английское слово" autocomplete="off">
     <button onclick="checkDictation()">Проверить</button>
+    <button onclick="nextDictationCard()">➡ Следующее слово</button>
+    <button onclick="repeatPhase(4)">🔁 Повторить этап</button>
     <button onclick="goToNextPage()">Пропустить этап</button>
     <p id="dictation-feedback"></p>
   </div>
@@ -93,9 +81,7 @@ button { margin-top: 5px; }
 
 <script>
 let lessonsDB = {};
-let english = [];
-let transcriptions = [];
-let translated = [];
+let english = [], transcriptions = [], translated = [], examples = [];
 let currentIndex = 0;
 
 // --- Меню ---
@@ -103,28 +89,21 @@ document.getElementById("menuBtn").addEventListener("click", () => {
   document.getElementById("menuDropdown").classList.toggle("show");
 });
 
-// --- Загрузка JSON и генерация меню ---
 fetch('lessons.json')
   .then(res => res.json())
-  .then(data => {
-    lessonsDB = data;
-    generateLevelsMenu(Object.keys(lessonsDB));
-  })
-  .catch(err => console.error("Ошибка загрузки JSON:", err));
+  .then(data => { lessonsDB = data; generateLevelsMenu(Object.keys(lessonsDB)); })
+  .catch(err => console.error("Ошибка JSON:", err));
 
 function generateLevelsMenu(levels) {
   const menu = document.getElementById("menuDropdown");
   menu.innerHTML = "";
-
   levels.forEach(level => {
     const li = document.createElement("li");
     li.className = "menu__nav-item";
-
     const button = document.createElement("button");
     button.textContent = level;
     button.className = "level-btn";
     button.onclick = () => toggleLessons(level, button);
-
     li.appendChild(button);
     menu.appendChild(li);
   });
@@ -133,218 +112,111 @@ function generateLevelsMenu(levels) {
 function toggleLessons(level, button) {
   const existing = button.nextElementSibling;
   if (existing) { existing.remove(); return; }
-
   const ul = document.createElement("ul");
   ul.className = "submenu";
-
   const lessons = lessonsDB[level];
   for (const lessonKey in lessons) {
     const lesson = lessons[lessonKey];
     const li = document.createElement("li");
     li.textContent = lesson.title;
-    li.style.cursor = "pointer";
     li.onclick = () => loadLesson(level, lessonKey, li);
     ul.appendChild(li);
   }
-
   button.parentNode.appendChild(ul);
 }
 
-// --- Загрузка урока и переход сразу к фазе 1 ---
-function loadLesson(level, lessonKey, lessonElement) {
+// --- Загрузка урока ---
+function loadLesson(level, lessonKey, li) {
   const lesson = lessonsDB[level][lessonKey];
-  if (!lesson) return console.error("Урок не найден:", level, lessonKey);
-
-  // Подсветка выбранного урока
-  document.querySelectorAll(".submenu li").forEach(li => li.style.background = "");
-  lessonElement.style.background = "#d3f0ff";
-
   english = lesson.english || [];
   transcriptions = lesson.transcriptions || [];
   translated = lesson.translated || [];
+  examples = lesson.example || [];
 
-  // Скрыть меню
+  document.querySelectorAll(".submenu li").forEach(el => el.style.background = "");
+  li.style.background = "#d3f0ff";
   document.getElementById("menuDropdown").classList.remove("show");
 
-  // Скрыть все страницы
   document.querySelectorAll("div[id^='page']").forEach(div => div.style.display = "none");
-
-  // Прокрутка к содержимому урока
   document.getElementById("lessonContent").scrollIntoView({ behavior: "smooth" });
 
-  // Сброс прогресса и старт первой фазы
   currentIndex = 0;
   startPhase1();
 }
 
-// --- Вспомогательные функции ---
-function shuffleArray(array) {
-  for (let i = array.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [array[i], array[j]] = [array[j], array[i]];
-  }
-  return array;
-}
-
-function updateProgress(done, total, phaseName) {
-  const percent = Math.round((done / total) * 100);
-  document.getElementById("progressText").innerText = `${phaseName}: ${done} / ${total}`;
-  const bar = document.getElementById("progressBar");
-  bar.style.width = percent + "%";
-  bar.innerText = percent + "%";
-}
+// --- Утилиты ---
+function shuffleArray(arr) { for (let i=arr.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[arr[i],arr[j]]=[arr[j],arr[i]];} return arr; }
+function updateProgress(done,total,phase){const p=Math.round((done/total)*100);document.getElementById("progressText").innerText=`${phase}: ${done}/${total}`;const b=document.getElementById("progressBar");b.style.width=p+"%";b.innerText=p+"%";}
 
 // --- Фаза 1 ---
-function startPhase1() {
-  document.getElementById("page1").style.display = "none";
-  document.getElementById("page1_5").style.display = "none";
-  document.getElementById("page2").style.display = "none";
-  document.getElementById("page3").style.display = "block";
-  showNextCard();
-}
-
-function showNextCard() {
-  if (currentIndex >= english.length) {
-    document.getElementById("page3").style.display = "none";
-    startPhase2();
-    return;
-  }
-  const eng = english[currentIndex];
-  const transcr = transcriptions[currentIndex] ? `[${transcriptions[currentIndex]}]` : "";
-  const rus = translated[currentIndex];
-  const card = document.getElementById("card");
-  card.style.opacity = 0;
-  card.innerHTML = `<strong>${eng}</strong> ${transcr}<br>${rus}`;
-  setTimeout(() => { card.style.opacity = 1; }, 50);
-
-  currentIndex++;
-  updateProgress(currentIndex, english.length, "Фаза 1");
+function startPhase1(){document.getElementById("page3").style.display="block";currentIndex=0;showNextCard();}
+function showNextCard(){
+  if(currentIndex>=english.length){document.getElementById("page3").style.display="none";startPhase2();return;}
+  const ex = examples[currentIndex] ? `<br><em>Пример: ${examples[currentIndex]}</em>`:"";
+  document.getElementById("card").innerHTML=`<strong>${english[currentIndex]}</strong> [${transcriptions[currentIndex]||""}]<br>${translated[currentIndex]}${ex}`;
+  currentIndex++;updateProgress(currentIndex,english.length,"Фаза 1");
 }
 
 // --- Фаза 2 ---
-let queue2 = [], currentPair2 = null;
-
-function startPhase2() {
-  document.getElementById("page4").style.display = "block";
-  queue2 = english.map((w, i) => ({ eng: w, rus: translated[i], transcr: transcriptions[i] }));
-  queue2 = shuffleArray(queue2);
-  nextPhase2Card();
+let queue2=[],currentPair2=null;
+function startPhase2(){document.getElementById("page4").style.display="block";queue2=shuffleArray(english.map((w,i)=>({eng:w,rus:translated[i],transcr:transcriptions[i],ex:examples[i]})));nextPhase2Card();}
+function nextPhase2Card(){
+  if(queue2.length===0){document.getElementById("page4").style.display="none";startPhase3();return;}
+  currentPair2=queue2.shift();
+  document.getElementById("phase2-translation").innerText=currentPair2.rus;
+  document.getElementById("phase2-answer").innerHTML=`${currentPair2.eng} ${currentPair2.transcr?`[${currentPair2.transcr}]`:""}${currentPair2.ex?`<br><em>Пример: ${currentPair2.ex}</em>`:""}`;
+  document.getElementById("answerSection").style.display="none";document.getElementById("showAnswerBtn").style.display="inline-block";
+  updateProgress(english.length-queue2.length,english.length,"Фаза 2");
 }
-
-function nextPhase2Card() {
-  if (queue2.length === 0) {
-    document.getElementById("page4").style.display = "none";
-    startPhase3();
-    return;
-  }
-  currentPair2 = queue2.shift();
-  document.getElementById("phase2-translation").innerText = currentPair2.rus;
-  document.getElementById("phase2-answer").innerText = `${currentPair2.eng} ${currentPair2.transcr ? "[" + currentPair2.transcr + "]" : ""}`;
-  document.getElementById("answerSection").style.display = "none";
-  document.getElementById("showAnswerBtn").style.display = "inline-block";
-  updateProgress(english.length - queue2.length, english.length, "Фаза 2");
-}
-
-function showAnswer() {
-  document.getElementById("answerSection").style.display = "block";
-  document.getElementById("showAnswerBtn").style.display = "none";
-}
-
-function markAnswer(correct) {
-  if (!correct) queue2.push(currentPair2);
-  nextPhase2Card();
-}
+function showAnswer(){document.getElementById("answerSection").style.display="block";document.getElementById("showAnswerBtn").style.display="none";}
+function markAnswer(ok){if(!ok)queue2.push(currentPair2);nextPhase2Card();}
 
 // --- Фаза 3 ---
-let queue3 = [], currentPair3 = null;
-
-function startPhase3() {
-  document.getElementById("page5").style.display = "block";
-  queue3 = english.map((w, i) => ({ eng: w, rus: translated[i], transcr: transcriptions[i] }));
-  queue3 = shuffleArray(queue3);
-  nextPhase3Card();
+let queue3=[],currentPair3=null;
+function startPhase3(){document.getElementById("page5").style.display="block";queue3=shuffleArray(english.map((w,i)=>({eng:w,rus:translated[i],transcr:transcriptions[i],ex:examples[i]})));nextPhase3Card();}
+function nextPhase3Card(){
+  if(queue3.length===0){document.getElementById("page5").style.display="none";startPhase4();return;}
+  currentPair3=queue3.shift();
+  document.getElementById("phase3-original").innerText=currentPair3.eng;
+  document.getElementById("phase3-answer").innerHTML=`${currentPair3.rus} ${currentPair3.transcr?`[${currentPair3.transcr}]`:""}${currentPair3.ex?`<br><em>Пример: ${currentPair3.ex}</em>`:""}`;
+  document.getElementById("answerSection3").style.display="none";document.getElementById("showAnswerBtn3").style.display="inline-block";
+  updateProgress(english.length-queue3.length,english.length,"Фаза 3");
 }
-
-function nextPhase3Card() {
-  if (queue3.length === 0) {
-    document.getElementById("page5").style.display = "none";
-    startPhase4();
-    return;
-  }
-  currentPair3 = queue3.shift();
-  document.getElementById("phase3-original").innerText = currentPair3.eng;
-  document.getElementById("phase3-answer").innerText = `${currentPair3.rus} ${currentPair3.transcr ? "[" + currentPair3.transcr + "]" : ""}`;
-  document.getElementById("answerSection3").style.display = "none";
-  document.getElementById("showAnswerBtn3").style.display = "inline-block";
-  updateProgress(english.length - queue3.length, english.length, "Фаза 3");
-}
-
-function showAnswer3() {
-  document.getElementById("answerSection3").style.display = "block";
-  document.getElementById("showAnswerBtn3").style.display = "none";
-}
-
-function markAnswer3(correct) {
-  if (!correct) queue3.push(currentPair3);
-  nextPhase3Card();
-}
+function showAnswer3(){document.getElementById("answerSection3").style.display="block";document.getElementById("showAnswerBtn3").style.display="none";}
+function markAnswer3(ok){if(!ok)queue3.push(currentPair3);nextPhase3Card();}
 
 // --- Фаза 4 ---
-let queue4 = [], currentPair4 = null;
-
-function startPhase4() {
-  document.getElementById("page5").style.display = "none";
-  document.getElementById("page6").style.display = "block";
-  queue4 = english.map((w, i) => ({ eng: w, rus: translated[i], transcr: transcriptions[i] }));
-  queue4 = shuffleArray(queue4);
-  nextDictationCard();
+let queue4=[],currentPair4=null;
+function startPhase4(){document.getElementById("page6").style.display="block";queue4=shuffleArray(english.map((w,i)=>({eng:w,rus:translated[i],transcr:transcriptions[i],ex:examples[i]})));nextDictationCard();}
+function nextDictationCard(){
+  if(queue4.length===0){document.getElementById("dictation-translation").innerText="Фаза завершена 🎉";document.getElementById("dictation-input").style.display="none";return;}
+  currentPair4=queue4.shift();
+  document.getElementById("dictation-translation").innerText=currentPair4.rus;
+  document.getElementById("dictation-input").value="";document.getElementById("dictation-feedback").innerText="";
+  updateProgress(english.length-queue4.length,english.length,"Фаза 4");
+}
+function checkDictation(){
+  const ans=document.getElementById("dictation-input").value.trim().toLowerCase();
+  const correct=currentPair4.eng.toLowerCase();
+  if(ans===correct){document.getElementById("dictation-feedback").innerText=`✅ Верно: ${currentPair4.eng} [${currentPair4.transcr||""}]`;}
+  else{document.getElementById("dictation-feedback").innerText=`❌ Неверно. Правильно: ${currentPair4.eng} [${currentPair4.transcr||""}]`;}
 }
 
-function nextDictationCard() {
-  document.getElementById("dictation-feedback").innerText = "";
-  document.getElementById("dictation-input").value = "";
-  document.getElementById("dictation-input").style.display = "inline-block";
-
-  if (queue4.length === 0) {
-    document.getElementById("dictation-translation").innerText = "Фаза завершена! 🎉";
-    document.getElementById("dictation-input").style.display = "none";
-    updateProgress(english.length, english.length, "Фаза 4");
-    return;
-  }
-
-  currentPair4 = queue4.shift();
-  document.getElementById("dictation-translation").innerText = currentPair4.rus;
-  updateProgress(english.length - queue4.length, english.length, "Фаза 4");
+// --- Повторить этап ---
+function repeatPhase(n){
+  document.querySelectorAll("div[id^='page']").forEach(div=>div.style.display="none");
+  if(n===1)startPhase1();
+  if(n===2)startPhase2();
+  if(n===3)startPhase3();
+  if(n===4)startPhase4();
 }
 
-function checkDictation() {
-  const userInput = document.getElementById("dictation-input").value.trim().toLowerCase();
-  const correctAnswer = currentPair4.eng.toLowerCase();
-  if (userInput === correctAnswer) {
-    document.getElementById("dictation-feedback").innerText = `✅ Верно! ${currentPair4.eng} ${currentPair4.transcr ? "[" + currentPair4.transcr + "]" : ""}`;
-  } else {
-    document.getElementById("dictation-feedback").innerText = `❌ Неверно. Правильно: ${currentPair4.eng} ${currentPair4.transcr ? "[" + currentPair4.transcr + "]" : ""}`;
-    queue4.push(currentPair4);
-  }
-  setTimeout(() => { nextDictationCard(); }, 1000);
+// --- Пропуск этапа ---
+function goToNextPage(){
+  if(document.getElementById("page3").style.display==="block"){document.getElementById("page3").style.display="none";startPhase2();}
+  else if(document.getElementById("page4").style.display==="block"){document.getElementById("page4").style.display="none";startPhase3();}
+  else if(document.getElementById("page5").style.display==="block"){document.getElementById("page5").style.display="none";startPhase4();}
 }
-
-// --- Кнопка "Пропустить этап" ---
-function goToNextPage() {
-  if (document.getElementById("page3").style.display === "block") {
-    document.getElementById("page3").style.display = "none";
-    startPhase2();
-  } else if (document.getElementById("page4").style.display === "block") {
-    document.getElementById("page4").style.display = "none";
-    startPhase3();
-  } else if (document.getElementById("page5").style.display === "block") {
-    document.getElementById("page5").style.display = "none";
-    startPhase4();
-  }
-}
-
 </script>
-
 </body>
 </html>
-
