@@ -1,4 +1,3 @@
-<script>
 let currentLevel = null;
 let currentLesson = null;
 let english = [];
@@ -217,5 +216,3 @@ function repeatPhase() {
     nextDictationCard();
   }
 }
-
-
