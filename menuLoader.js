@@ -1,249 +1,221 @@
 <script>
-/* ---- ЛОГИКА ЗАГРУЗКИ И ТРЕНИНГА ---- */
-document.getElementById("menuBtn").addEventListener("click", () => {
-  document.getElementById("menuDropdown").classList.toggle("show");
-});
-
-let lessonsDB = {};
+let currentLevel = null;
 let currentLesson = null;
-let cards = [];
-let cardIndex = 0;
-let phase = 0; // 1..4
+let english = [];
+let transcriptions = [];
+let translated = [];
+let examples = [];
 
-// Fetch JSON 
-function loadJSON() {
-  fetch('lessons.json')
-    .then(res => {
-      if (!res.ok) throw new Error('HTTP error ' + res.status);
-      return res.json();
-    })
-    .then(data => {
-      lessonsDB = data;
-      generateLevelsMenu(Object.keys(lessonsDB));
-      console.log('lessons loaded', lessonsDB);
-    })
-    .catch(err => {
-      console.error('Ошибка загрузки JSON:', err);
-      document.getElementById('lessonTitle').textContent = 'Ошибка загрузки lessons.json — открой через локальный сервер';
-    });
-}
+let currentIndex = 0;
+let usedIndices = [];
+let currentPhase = 1;
+let currentPair2 = null;
+let currentPair3 = null;
+let dictationIndex = 0;
 
-function generateLevelsMenu(levels) {
-  const menu = document.getElementById("menuDropdown");
-  menu.innerHTML = "";
-  levels.forEach(level => {
-    const li = document.createElement("li");
-    li.className = "menu__nav-item";
-    const button = document.createElement("button");
-    button.textContent = level;
-    button.className = "level-btn";
-    button.onclick = () => toggleLessons(level, button);
-    li.appendChild(button);
-    menu.appendChild(li);
+// 📌 Загрузка уровней из JSON
+async function loadLevels() {
+  const response = await fetch("data.json");
+  const data = await response.json();
+
+  const levelsContainer = document.getElementById("levels-container");
+  levelsContainer.innerHTML = "";
+
+  Object.keys(data).forEach(level => {
+    const btn = document.createElement("button");
+    btn.textContent = level;
+    btn.onclick = () => showLessons(level, data[level]);
+    levelsContainer.appendChild(btn);
   });
 }
 
-function toggleLessons(level, button) {
-  const existing = button.parentNode.querySelector('.submenu');
-  if (existing) { existing.remove(); return; }
+// 📌 Показ уроков
+function showLessons(level, lessons) {
+  currentLevel = level;
 
-  const ul = document.createElement("ul");
-  ul.className = "submenu";
-  const lessons = lessonsDB[level] || {};
-  for (const lessonKey in lessons) {
-    const lesson = lessons[lessonKey];
-    const li = document.createElement("li");
-    li.textContent = lesson.title || lessonKey;
-    li.onclick = () => loadLesson(level, lessonKey);
-    ul.appendChild(li);
-  }
-  button.parentNode.appendChild(ul);
-}
+  const lessonsContainer = document.getElementById("lessons-container");
+  lessonsContainer.innerHTML = "";
 
-function loadLesson(level, lessonKey) {
-  const lesson = lessonsDB[level] && lessonsDB[level][lessonKey];
-  if (!lesson) {
-    console.error('Урок не найден', level, lessonKey);
-    return;
-  }
-  currentLesson = {level, lessonKey, data: lesson};
-
-  // Показываем заголовок
-  document.getElementById('lessonTitle').textContent = lesson.title || `${level} - ${lessonKey}`;
-  document.getElementById('lessonMeta').innerHTML = `<strong>Уровень:</strong> ${level} &nbsp; <strong>Ключ:</strong> ${lessonKey}`;
-
-  // Заполняем текстовые поля (не перезаписываем page-разметку)
-  document.getElementById('englishWords').value = Array.isArray(lesson.english) ? lesson.english.join('\n') : (lesson.english || '').toString();
-  document.getElementById('englishTranscription').value = Array.isArray(lesson.transcriptions) ? lesson.transcriptions.join('\n') : (lesson.transcriptions || '').toString();
-  document.getElementById('translatedWords').value = Array.isArray(lesson.translated) ? lesson.translated.join('\n') : (lesson.translated || '').toString();
-
-  // также можно показать примеры под заголовком
-  if (Array.isArray(lesson.example) && lesson.example.length) {
-    const ex = lesson.example.map(e => `<li>${e}</li>`).join('');
-    const meta = document.getElementById('lessonMeta');
-    meta.innerHTML += `<div><strong>Примеры:</strong><ul class="wordlist">${ex}</ul></div>`;
-  }
-
-  // reset training state
-  cards = [];
-  cardIndex = 0;
-  phase = 0;
-  updateProgress(0);
-
-  // оставить показ page1 по умолчанию
-  showPage('page1');
-}
-
-/* ----- УТИЛИТЫ ПОКАЗА СТРАНИЦ ----- */
-function showPage(id) {
-  ['page1','page1_5','page2','page3','page4','page5','page6'].forEach(p => {
-    const el = document.getElementById(p);
-    if (!el) return;
-    if (p === id) el.classList.remove('hidden'); else el.classList.add('hidden');
+  Object.keys(lessons).forEach(lessonKey => {
+    const btn = document.createElement("button");
+    btn.textContent = lessons[lessonKey].title;
+    btn.onclick = () => loadLesson(lessons[lessonKey]);
+    lessonsContainer.appendChild(btn);
   });
+
+  document.getElementById("page1").style.display = "none";
+  document.getElementById("page2").style.display = "block";
 }
 
-/* ----- ПРОГРЕСС ----- */
-function updateProgress(percent) {
-  const bar = document.getElementById('progressBar');
-  bar.style.width = percent + '%';
-  bar.textContent = percent + '%';
-  document.getElementById('progressText').textContent = `Прогресс: ${percent}%`;
+// 📌 Загрузка урока
+function loadLesson(lesson) {
+  currentLesson = lesson;
+  english = lesson.english || [];
+  transcriptions = lesson.transcriptions || [];
+  translated = lesson.translated || [];
+  examples = lesson.example || [];
+
+  document.getElementById("page2").style.display = "none";
+  document.getElementById("page3").style.display = "block";
+
+  currentIndex = 0;
+  usedIndices = [];
+  currentPhase = 1;
+
+  showNextCard();
+
+  // 📌 Автопрокрутка вниз к уроку
+  document.getElementById("page3").scrollIntoView({ behavior: "smooth" });
 }
 
-/* ----- Функции фаз (грубая, но рабочая логика) ----- */
-function goToTranscription() { showPage('page1_5'); }
-function skipTranscription() { document.getElementById('englishTranscription').value = ''; goToTranslations(); }
-function goToTranslations() { showPage('page2'); }
-
-function startPhase1() {
-  // собираем данные из полей
-  const eng = document.getElementById('englishWords').value.split('\n').map(s => s.trim()).filter(Boolean);
-  const trans = document.getElementById('englishTranscription').value.split('\n').map(s => s.trim());
-  const rus = document.getElementById('translatedWords').value.split('\n').map(s => s.trim());
-
-  // соберём карточки
-  cards = eng.map((word, i) => ({
-    english: word,
-    transcription: trans[i] || '',
-    translated: rus[i] || ''
-  }));
-  cardIndex = 0;
-  phase = 1;
-  if (!cards.length) {
-    alert('Слова пустые. Заполни поля или загрузите урок из JSON.');
-    return;
-  }
-  showPage('page3');
-  renderCard();
-  updateProgress(5);
+// 📌 Обновление прогресса
+function updateProgress(current, total, phase) {
+  const progress = document.getElementById("progress");
+  progress.textContent = `${phase}: ${current} / ${total}`;
 }
 
-function renderCard() {
-  const c = cards[cardIndex];
-  document.getElementById('card').textContent = `${c.english} ${c.transcription ? '['+c.transcription+']' : ''} — ${c.translated}`;
-}
-
+// ================== ФАЗА 1 ==================
 function showNextCard() {
-  cardIndex++;
-  if (cardIndex >= cards.length) {
-    goToNextPage(); // переход к фазе 2
+  if (currentIndex >= english.length) {
+    document.getElementById("page3").style.display = "none";
+    startPhase2();
     return;
   }
-  renderCard();
-  updateProgress(Math.round((cardIndex/cards.length)*50));
+
+  const eng = english[currentIndex];
+  const transcr = transcriptions[currentIndex] ? `[${transcriptions[currentIndex]}]` : "";
+  const rus = translated[currentIndex];
+  const example = examples[currentIndex] ? `<br><em>Пример: ${examples[currentIndex]}</em>` : "";
+
+  const card = document.getElementById("card");
+  card.style.opacity = 0;
+  card.innerHTML = `<strong>${eng}</strong> ${transcr}<br>${rus}${example}`;
+  setTimeout(() => { card.style.opacity = 1; }, 50);
+
+  currentIndex++;
+  updateProgress(currentIndex, english.length, "Фаза 1");
 }
 
-function goToNextPage() {
-  if (phase === 1) {
-    // старт фазы 2
-    phase = 2;
-    cardIndex = 0;
-    document.getElementById('answerSection').classList.add('hidden');
-    showPage('page4');
-    renderPhase2();
-    updateProgress(55);
-  } else if (phase === 2) {
-    // фаза 3
-    phase = 3;
-    cardIndex = 0;
-    document.getElementById('answerSection3').classList.add('hidden');
-    showPage('page5');
-    renderPhase3();
-    updateProgress(75);
-  } else if (phase === 3) {
-    // фаза 4 диктант
-    phase = 4;
-    cardIndex = 0;
-    showPage('page6');
-    renderDictation();
-    updateProgress(90);
-  } else {
-    // завершение
-    updateProgress(100);
-    alert('Тренировка завершена.');
+// ================== ФАЗА 2 ==================
+function startPhase2() {
+  document.getElementById("page4").style.display = "block";
+  nextPhase2Card();
+}
+
+function nextPhase2Card() {
+  if (usedIndices.length >= english.length) {
+    document.getElementById("page4").style.display = "none";
+    startPhase3();
+    return;
   }
+
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * english.length);
+  } while (usedIndices.includes(idx));
+  usedIndices.push(idx);
+
+  currentPair2 = { eng: english[idx], transcr: transcriptions[idx], rus: translated[idx], ex: examples[idx] };
+
+  document.getElementById("phase2-question").textContent = currentPair2.rus;
+  document.getElementById("phase2-answer").textContent = "";
 }
 
-/* Фаза 2: перевод -> оригинал */
-function renderPhase2() {
-  if (!cards.length) { document.getElementById('phase2-translation').textContent='Нет карточек'; return; }
-  document.getElementById('phase2-translation').textContent = cards[cardIndex].translated;
-  document.getElementById('phase2-answer').textContent = cards[cardIndex].english;
+function showPhase2Answer() {
+  document.getElementById("phase2-answer").innerHTML =
+    `${currentPair2.eng} ${currentPair2.transcr ? "[" + currentPair2.transcr + "]" : ""}` +
+    (currentPair2.ex ? `<br><em>Пример: ${currentPair2.ex}</em>` : "");
 }
 
-function showAnswer() {
-  document.getElementById('answerSection').classList.remove('hidden');
+// ================== ФАЗА 3 ==================
+function startPhase3() {
+  document.getElementById("page5").style.display = "block";
+  usedIndices = [];
+  nextPhase3Card();
 }
 
-function markAnswer(isCorrect) {
-  // здесь можно сохранять правильность
-  cardIndex++;
-  if (cardIndex >= cards.length) { goToNextPage(); return; }
-  renderPhase2();
-  document.getElementById('answerSection').classList.add('hidden');
+function nextPhase3Card() {
+  if (usedIndices.length >= english.length) {
+    document.getElementById("page5").style.display = "none";
+    startPhase4();
+    return;
+  }
+
+  let idx;
+  do {
+    idx = Math.floor(Math.random() * english.length);
+  } while (usedIndices.includes(idx));
+  usedIndices.push(idx);
+
+  currentPair3 = { eng: english[idx], transcr: transcriptions[idx], rus: translated[idx], ex: examples[idx] };
+
+  document.getElementById("phase3-question").textContent = currentPair3.eng;
+  document.getElementById("phase3-answer").textContent = "";
 }
 
-/* Фаза 3: оригинал -> перевод */
-function renderPhase3() {
-  if (!cards.length) { document.getElementById('phase3-original').textContent='Нет карточек'; return; }
-  document.getElementById('phase3-original').textContent = cards[cardIndex].english;
-  document.getElementById('phase3-answer').textContent = cards[cardIndex].translated;
-}
-function showAnswer3() { document.getElementById('answerSection3').classList.remove('hidden'); }
-function markAnswer3(isCorrect) {
-  cardIndex++;
-  if (cardIndex >= cards.length) { goToNextPage(); return; }
-  renderPhase3();
-  document.getElementById('answerSection3').classList.add('hidden');
+function showPhase3Answer() {
+  document.getElementById("phase3-answer").innerHTML =
+    `${currentPair3.rus}` + (currentPair3.ex ? `<br><em>Пример: ${currentPair3.ex}</em>` : "");
 }
 
-/* Фаза 4: диктант */
-function renderDictation() {
-  if (!cards.length) { document.getElementById('dictation-translation').textContent='Нет карточек'; return; }
-  document.getElementById('dictation-translation').textContent = cards[cardIndex].translated;
-  document.getElementById('dictation-input').value = '';
-  document.getElementById('dictation-feedback').textContent = '';
+// ================== ФАЗА 4 (ДИКТАНТ) ==================
+function startPhase4() {
+  document.getElementById("page6").style.display = "block";
+  dictationIndex = 0;
+  nextDictationCard();
+}
+
+function nextDictationCard() {
+  if (dictationIndex >= english.length) {
+    alert("Поздравляем! Урок пройден 🎉");
+    return;
+  }
+
+  document.getElementById("dictation-question").textContent = translated[dictationIndex];
+  document.getElementById("dictation-input").value = "";
+  document.getElementById("dictation-feedback").textContent = "";
 }
 
 function checkDictation() {
-  const input = document.getElementById('dictation-input').value.trim();
-  const correct = cards[cardIndex].english.trim();
-  if (input.toLowerCase() === correct.toLowerCase()) {
-    document.getElementById('dictation-feedback').textContent = 'Правильно!';
+  const input = document.getElementById("dictation-input").value.trim().toLowerCase();
+  const correct = english[dictationIndex].toLowerCase();
+
+  if (input === correct) {
+    document.getElementById("dictation-feedback").textContent = "✅ Верно!";
+    dictationIndex++;
+    setTimeout(nextDictationCard, 800);
   } else {
-    document.getElementById('dictation-feedback').textContent = `Неправильно. Правильно: ${correct}`;
-  }
-  cardIndex++;
-  if (cardIndex >= cards.length) {
-    updateProgress(100);
-    alert('Диктант завершён.');
-  } else {
-    renderDictation();
-    updateProgress(90 + Math.round((cardIndex/cards.length)*10));
+    document.getElementById("dictation-feedback").innerHTML =
+      `❌ Ошибка. Правильный ответ: <strong>${english[dictationIndex]}</strong>` +
+      (examples[dictationIndex] ? `<br><em>Пример: ${examples[dictationIndex]}</em>` : "") +
+      `<br><button onclick="skipAfterError()">Продолжить</button>`;
   }
 }
 
-/* ----- старт ----- */
-loadJSON();
-</script>
+function skipAfterError() {
+  dictationIndex++;
+  nextDictationCard();
+}
+
+// ================== ДОП. ФУНКЦИЯ: ПОВТОРИТЬ ЭТАП ==================
+function repeatPhase() {
+  if (currentPhase === 1) {
+    currentIndex = 0;
+    document.getElementById("page3").style.display = "block";
+    showNextCard();
+  } else if (currentPhase === 2) {
+    usedIndices = [];
+    document.getElementById("page4").style.display = "block";
+    nextPhase2Card();
+  } else if (currentPhase === 3) {
+    usedIndices = [];
+    document.getElementById("page5").style.display = "block";
+    nextPhase3Card();
+  } else if (currentPhase === 4) {
+    dictationIndex = 0;
+    document.getElementById("page6").style.display = "block";
+    nextDictationCard();
+  }
+}
+
+
