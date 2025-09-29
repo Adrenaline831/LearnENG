@@ -125,10 +125,81 @@ let wrongQueue = [];
 let dictationQueue = [];
 let dictationWaiting = false;
 
+// === Загрузка базы данных ===
+async function loadLessons() {
+  try {
+    const response = await fetch("lessons.json"); // база в JSON файле
+    lessonsDB = await response.json();
+    buildMenu();
+  } catch (e) {
+    console.error("Ошибка загрузки базы:", e);
+  }
+}
+
 // === Меню ===
+function buildMenu() {
+  const menu = document.getElementById("menuDropdown");
+  menu.innerHTML = "";
+
+  // пункт для самостоятельного ввода
+  const selfItem = document.createElement("li");
+  selfItem.classList.add("menu__nav-item");
+  selfItem.innerHTML = `<button class="level-btn" onclick="startSelfInput()">✍ Самостоятельный ввод</button>`;
+  menu.appendChild(selfItem);
+
+  // уровни из базы
+  for (const level in lessonsDB) {
+    const li = document.createElement("li");
+    li.classList.add("menu__nav-item");
+
+    const btn = document.createElement("button");
+    btn.textContent = level;
+    btn.classList.add("level-btn");
+    btn.addEventListener("click", () => {
+      submenu.classList.toggle("show");
+    });
+
+    const submenu = document.createElement("ul");
+    submenu.classList.add("submenu");
+
+    for (const lessonId in lessonsDB[level]) {
+      const lesson = lessonsDB[level][lessonId];
+      const subItem = document.createElement("li");
+      subItem.textContent = lesson.title;
+      subItem.addEventListener("click", () => loadLesson(level, lessonId));
+      submenu.appendChild(subItem);
+    }
+
+    li.appendChild(btn);
+    li.appendChild(submenu);
+    menu.appendChild(li);
+  }
+}
+
 document.getElementById("menuBtn").addEventListener("click", () => {
   document.getElementById("menuDropdown").classList.toggle("show");
 });
+
+// === Запуск самостоятельного ввода ===
+function startSelfInput() {
+  hideAllPages();
+  document.getElementById("page0").classList.remove("hidden");
+}
+
+// === Загрузка урока из базы ===
+function loadLesson(level, lessonId) {
+  currentLesson = lessonsDB[level][lessonId];
+  words = currentLesson.english;
+  transcriptions = currentLesson.transcriptions || words.map(_ => "");
+  translations = currentLesson.translated;
+  examples = currentLesson.example || words.map(_ => "");
+  currentPhase = 3;
+  currentIndex = 0;
+  wrongQueue = [];
+  startPhase(currentPhase);
+  hideAllPages();
+  document.getElementById("page3").classList.remove("hidden");
+}
 
 // === Ввод слов пользователем ===
 function hideAllPages() {
@@ -350,6 +421,11 @@ document.addEventListener("keydown", (e) => {
     if (!document.getElementById("page5").classList.contains("hidden")) showAnswer3();
   }
 });
+
+// === Старт ===
+loadLessons();
+
 </script>
 </body>
 </html>
+
