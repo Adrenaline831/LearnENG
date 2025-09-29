@@ -148,7 +148,7 @@ function generateLevelsMenu() {
     const li = document.createElement("li");
     li.classList.add("menu__nav-item");
 
-    // Кнопка уровня (A1, A2, B1...)
+    // Кнопка уровня (A1, A2, B1...C2)
     const btn = document.createElement("button");
     btn.textContent = level;
     btn.classList.add("level-btn");
@@ -161,16 +161,27 @@ function generateLevelsMenu() {
     Object.keys(lessonsDB[level]).forEach(lessonKey => {
       const lessonLi = document.createElement("li");
       lessonLi.textContent = lessonsDB[level][lessonKey].title;
+
       lessonLi.addEventListener("click", () => {
         startLesson(level, lessonKey);
+
+        // Подсветка выбранного урока
+        document.querySelectorAll(".submenu li").forEach(el => el.classList.remove("active-lesson"));
+        lessonLi.classList.add("active-lesson");
+
+        // Автоскролл вниз к карточкам урока
+        setTimeout(() => {
+          document.getElementById("page3").scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 300);
       });
+
       ul.appendChild(lessonLi);
     });
 
     li.appendChild(ul);
     menu.appendChild(li);
 
-    // сворачивание/разворачивание
+    // Разворачивание/сворачивание уроков
     btn.addEventListener("click", () => {
       ul.classList.toggle("show");
     });
@@ -341,8 +352,13 @@ function goToNextPage() {
   else finishLesson();
 }
 
+// === Повторить этап (возврат на предыдущую фазу) ===
 function repeatPhase() {
-  startPhase(currentPhase);
+  if (currentPhase > 3) {
+    startPhase(currentPhase - 1); // возврат на предыдущую фазу
+  } else {
+    startPhase(3); // если на фазе 3 — перезапуск урока
+  }
 }
 
 function finishLesson() {
@@ -415,9 +431,9 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-
 </script>
 </body>
 </html>
+
 
 
