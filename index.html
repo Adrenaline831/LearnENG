@@ -125,80 +125,73 @@ let wrongQueue = [];
 let dictationQueue = [];
 let dictationWaiting = false;
 
-// === Загрузка базы данных ===
-async function loadLessons() {
-  try {
-    const response = await fetch("lessons.json"); // база в JSON файле
-    lessonsDB = await response.json();
-    buildMenu();
-  } catch (e) {
-    console.error("Ошибка загрузки базы:", e);
-  }
-}
+// === Загружаем JSON при старте ===
+fetch("lessons.json")
+  .then(res => res.json())
+  .then(data => {
+    lessonsDB = data;
+    generateLevelsMenu();
+  })
+  .catch(err => console.error("Ошибка загрузки JSON:", err));
 
 // === Меню ===
-function buildMenu() {
-  const menu = document.getElementById("menuDropdown");
-  menu.innerHTML = "";
-
-  // пункт для самостоятельного ввода
-  const selfItem = document.createElement("li");
-  selfItem.classList.add("menu__nav-item");
-  selfItem.innerHTML = `<button class="level-btn" onclick="startSelfInput()">✍ Самостоятельный ввод</button>`;
-  menu.appendChild(selfItem);
-
-  // уровни из базы
-  for (const level in lessonsDB) {
-    const li = document.createElement("li");
-    li.classList.add("menu__nav-item");
-
-    const btn = document.createElement("button");
-    btn.textContent = level;
-    btn.classList.add("level-btn");
-    btn.addEventListener("click", () => {
-      submenu.classList.toggle("show");
-    });
-
-    const submenu = document.createElement("ul");
-    submenu.classList.add("submenu");
-
-    for (const lessonId in lessonsDB[level]) {
-      const lesson = lessonsDB[level][lessonId];
-      const subItem = document.createElement("li");
-      subItem.textContent = lesson.title;
-      subItem.addEventListener("click", () => loadLesson(level, lessonId));
-      submenu.appendChild(subItem);
-    }
-
-    li.appendChild(btn);
-    li.appendChild(submenu);
-    menu.appendChild(li);
-  }
-}
-
 document.getElementById("menuBtn").addEventListener("click", () => {
   document.getElementById("menuDropdown").classList.toggle("show");
 });
 
-// === Запуск самостоятельного ввода ===
-function startSelfInput() {
-  hideAllPages();
-  document.getElementById("page0").classList.remove("hidden");
+// Генерация уровней и уроков
+function generateLevelsMenu() {
+  const menu = document.getElementById("menuDropdown");
+  menu.innerHTML = "";
+
+  Object.keys(lessonsDB).forEach(level => {
+    const li = document.createElement("li");
+    li.classList.add("menu__nav-item");
+
+    // Кнопка уровня (A1, A2, B1...)
+    const btn = document.createElement("button");
+    btn.textContent = level;
+    btn.classList.add("level-btn");
+    li.appendChild(btn);
+
+    // Подменю для уроков
+    const ul = document.createElement("ul");
+    ul.classList.add("submenu");
+
+    Object.keys(lessonsDB[level]).forEach(lessonKey => {
+      const lessonLi = document.createElement("li");
+      lessonLi.textContent = lessonsDB[level][lessonKey].title;
+      lessonLi.addEventListener("click", () => {
+        startLesson(level, lessonKey);
+      });
+      ul.appendChild(lessonLi);
+    });
+
+    li.appendChild(ul);
+    menu.appendChild(li);
+
+    // сворачивание/разворачивание
+    btn.addEventListener("click", () => {
+      ul.classList.toggle("show");
+    });
+  });
 }
 
-// === Загрузка урока из базы ===
-function loadLesson(level, lessonId) {
-  currentLesson = lessonsDB[level][lessonId];
-  words = currentLesson.english;
-  transcriptions = currentLesson.transcriptions || words.map(_ => "");
-  translations = currentLesson.translated;
-  examples = currentLesson.example || words.map(_ => "");
+// Запуск урока
+function startLesson(level, lessonKey) {
+  const lesson = lessonsDB[level][lessonKey];
+  if (!lesson) return;
+
+  words = lesson.english;
+  transcriptions = lesson.transcriptions;
+  translations = lesson.translated;
+  examples = lesson.example || [];
   currentPhase = 3;
   currentIndex = 0;
   wrongQueue = [];
+
   startPhase(currentPhase);
-  hideAllPages();
-  document.getElementById("page3").classList.remove("hidden");
+  document.getElementById("menuDropdown").classList.remove("show");
 }
 
 // === Ввод слов пользователем ===
@@ -422,10 +415,9 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// === Старт ===
-loadLessons();
 
 </script>
 </body>
 </html>
+
 
