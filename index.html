@@ -4,30 +4,19 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Learn English</title>
-<style>
-body { font-family: Arial, sans-serif; margin: 20px; }
-.menu__btn { font-size: 20px; padding: 10px; cursor: pointer; }
-.menu__nav { list-style: none; padding: 0; margin: 10px 0; display: none; width: 220px; border: 1px solid #ccc; }
-.menu__nav.show { display: block; }
-.menu__nav-item { margin: 5px 0; }
-.level-btn { font-weight: bold; cursor: pointer; width: 100%; text-align: left; }
-.submenu { list-style: none; padding-left: 20px; margin-top: 5px; }
-.submenu li { cursor: pointer; margin: 3px 0; }
-.submenu li.active { background: #d0f0d0; font-weight: bold; }
-#lessonContent { margin-top: 20px; border-top: 1px solid #ccc; padding-top: 10px; }
-#progressBarContainer { width: 100%; background: #eee; border: 1px solid #ccc; margin: 10px 0; }
-#progressBar { background: #4caf50; color: white; text-align: center; padding: 5px 0; width: 0%; transition: width 0.4s; }
-.hidden { display: none; }
-.example { font-style: italic; color: #555; margin-top: 5px; }
-button { margin: 5px; }
-textarea { width: 100%; }
-</style>
+<link rel="stylesheet" href="style.css">
+<script src="menuLpader"></script>
 </head>
-<body>
+
 
 <!-- Кнопка меню -->
 <button class="menu__btn" id="menuBtn">☰ Меню</button>
-<ul class="menu__nav" id="menuDropdown"></ul>
+<ul class="menu__nav" id="menuDropdown">
+  <!-- Кнопка «Мой словарь» -->
+  <li class="menu__nav-item">
+    <button class="level-btn" id="myDictionaryBtn">Мой словарь</button>
+  </li>
+</ul>
 
 <div id="lessonContent">
   <div id="progressText"></div>
@@ -60,7 +49,10 @@ textarea { width: 100%; }
   <!-- Фазы обучения -->
   <div id="page3" class="hidden">
     <h2>Фаза 1: Ознакомление</h2>
-    <p id="card"></p>
+    <p id="card">
+      <span id="cardWord"></span>
+      <button id="addToDictionaryBtn" class="dictionary-btn">☆</button>
+    </p>
     <div class="example" id="cardExample"></div>
     <button onclick="showNextCard()">Далее</button>
     <button onclick="repeatPhase()">Повторить этап</button>
@@ -69,7 +61,10 @@ textarea { width: 100%; }
 
   <div id="page4" class="hidden">
     <h2>Фаза 2: Перевод → Оригинал</h2>
-    <p id="phase2-translation"></p>
+    <p id="phase2-translation">
+      <span id="phase2Word"></span>
+      <button id="addToDictionaryBtn2" class="dictionary-btn">☆</button>
+    </p>
     <div class="example" id="phase2-example"></div>
     <button id="showAnswerBtn" onclick="showAnswer()">Показать ответ</button>
     <div id="answerSection" class="hidden">
@@ -83,7 +78,10 @@ textarea { width: 100%; }
 
   <div id="page5" class="hidden">
     <h2>Фаза 3: Оригинал → Перевод</h2>
-    <p id="phase3-original"></p>
+    <p id="phase3-original">
+      <span id="phase3Word"></span>
+      <button id="addToDictionaryBtn3" class="dictionary-btn">☆</button>
+    </p>
     <div class="example" id="phase3-example"></div>
     <button id="showAnswerBtn3" onclick="showAnswer3()">Показать ответ</button>
     <div id="answerSection3" class="hidden">
@@ -110,330 +108,5 @@ textarea { width: 100%; }
     <button onclick="backToMenu()">Вернуться к меню</button>
   </div>
 </div>
-
-<script>
-// === Глобальные переменные ===
-let lessonsDB = {};
-let currentLesson = null;
-let words = [];
-let transcriptions = [];
-let translations = [];
-let examples = [];
-let currentPhase = 0;
-let currentIndex = 0;
-let wrongQueue = [];
-let dictationQueue = [];
-let dictationWaiting = false;
-
-// === Загружаем JSON при старте ===
-fetch("lessons.json")
-  .then(res => res.json())
-  .then(data => {
-    lessonsDB = data;
-    generateLevelsMenu();
-  })
-  .catch(err => console.error("Ошибка загрузки JSON:", err));
-
-// === Меню ===
-document.getElementById("menuBtn").addEventListener("click", () => {
-  document.getElementById("menuDropdown").classList.toggle("show");
-});
-
-// Генерация уровней и уроков
-function generateLevelsMenu() {
-  const menu = document.getElementById("menuDropdown");
-  menu.innerHTML = "";
-
-  Object.keys(lessonsDB).forEach(level => {
-    const li = document.createElement("li");
-    li.classList.add("menu__nav-item");
-
-    // Кнопка уровня (A1, A2, B1...C2)
-    const btn = document.createElement("button");
-    btn.textContent = level;
-    btn.classList.add("level-btn");
-    li.appendChild(btn);
-
-    // Подменю для уроков
-    const ul = document.createElement("ul");
-    ul.classList.add("submenu");
-
-    Object.keys(lessonsDB[level]).forEach(lessonKey => {
-      const lessonLi = document.createElement("li");
-      lessonLi.textContent = lessonsDB[level][lessonKey].title;
-
-      lessonLi.addEventListener("click", () => {
-        startLesson(level, lessonKey);
-
-        // Подсветка выбранного урока
-        document.querySelectorAll(".submenu li").forEach(el => el.classList.remove("active-lesson"));
-        lessonLi.classList.add("active-lesson");
-
-        // Автоскролл вниз к карточкам урока
-        setTimeout(() => {
-          document.getElementById("page3").scrollIntoView({ behavior: "smooth", block: "start" });
-        }, 300);
-      });
-
-      ul.appendChild(lessonLi);
-    });
-
-    li.appendChild(ul);
-    menu.appendChild(li);
-
-    // Разворачивание/сворачивание уроков
-    btn.addEventListener("click", () => {
-      ul.classList.toggle("show");
-    });
-  });
-}
-
-// Запуск урока
-function startLesson(level, lessonKey) {
-  const lesson = lessonsDB[level][lessonKey];
-  if (!lesson) return;
-
-  words = lesson.english;
-  transcriptions = lesson.transcriptions;
-  translations = lesson.translated;
-  examples = lesson.example || [];
-  currentPhase = 3;
-  currentIndex = 0;
-  wrongQueue = [];
-
-  startPhase(currentPhase);
-  document.getElementById("menuDropdown").classList.remove("show");
-}
-
-// === Ввод слов пользователем ===
-function hideAllPages() {
-  ["page0","page1_5","page2","page3","page4","page5","page6","finishPage"].forEach(id =>
-    document.getElementById(id).classList.add("hidden")
-  );
-}
-
-function goToTranscription() {
-  const rawWords = document.getElementById("englishWords").value.trim();
-  if (!rawWords) { alert("Введите хотя бы одно слово"); return; }
-  words = rawWords.split("\n").map(s => s.trim());
-  hideAllPages();
-  document.getElementById("page1_5").classList.remove("hidden");
-}
-
-function skipTranscription() {
-  transcriptions = words.map(_ => "");
-  goToTranslations();
-}
-
-function goToTranslations() {
-  const rawTranscriptions = document.getElementById("englishTranscription").value.trim();
-  if (rawTranscriptions) {
-    transcriptions = rawTranscriptions.split("\n").map(s => s.trim());
-    if (transcriptions.length !== words.length) {
-      alert("Количество транскрипций должно совпадать с количеством слов");
-      return;
-    }
-  } else {
-    transcriptions = words.map(_ => "");
-  }
-  hideAllPages();
-  document.getElementById("page2").classList.remove("hidden");
-}
-
-function startSelfLearning() {
-  const rawTranslations = document.getElementById("translatedWords").value.trim();
-  if (!rawTranslations) { alert("Введите переводы"); return; }
-  translations = rawTranslations.split("\n").map(s => s.trim());
-  if (translations.length !== words.length) {
-    alert("Количество переводов должно совпадать с количеством слов");
-    return;
-  }
-  examples = words.map(_ => "");
-  currentPhase = 3;
-  currentIndex = 0;
-  wrongQueue = [];
-  startPhase(currentPhase);
-}
-
-// === Логика фаз ===
-function startPhase(phase) {
-  hideAllPages();
-  currentPhase = phase;
-  currentIndex = 0;
-  wrongQueue = [];
-
-  updateProgress();
-
-  if (phase === 3) showNextCard();
-  if (phase === 4) showPhase2();
-  if (phase === 5) showPhase3();
-  if (phase === 6) startDictationPhase();
-}
-
-function updateProgress() {
-  const total = words.length;
-  const done = currentIndex;
-  const percent = Math.min(100, Math.round((done / total) * 100));
-  document.getElementById("progressText").textContent = `Прогресс: ${done}/${total}`;
-  document.getElementById("progressBar").style.width = percent + "%";
-  document.getElementById("progressBar").textContent = percent + "%";
-}
-
-// === Фазы 1–3 ===
-function showNextCard() {
-  if (currentIndex >= words.length) { goToNextPage(); return; }
-  document.getElementById("page3").classList.remove("hidden");
-  document.getElementById("card").innerHTML =
-    `<strong>${words[currentIndex]}</strong> [${transcriptions[currentIndex]}] — ${translations[currentIndex]}`;
-  document.getElementById("cardExample").textContent = examples[currentIndex] || "";
-  currentIndex++;
-  updateProgress();
-}
-
-function showPhase2() {
-  if (currentIndex >= words.length && wrongQueue.length === 0) { goToNextPage(); return; }
-  document.getElementById("page4").classList.remove("hidden");
-  document.getElementById("answerSection").classList.add("hidden");
-  const i = getCurrentIndex();
-  document.getElementById("phase2-translation").textContent = translations[i];
-  document.getElementById("phase2-example").textContent = examples[i] || "";
-}
-
-function showAnswer() {
-  const i = getCurrentIndex();
-  document.getElementById("phase2-answer").textContent = `${words[i]} [${transcriptions[i]}]`;
-  document.getElementById("answerSection").classList.remove("hidden");
-}
-
-function markAnswer(correct) {
-  const i = getCurrentIndex();
-  if (!correct) wrongQueue.push(i);
-  nextIndex();
-  showPhase2();
-}
-
-function showPhase3() {
-  if (currentIndex >= words.length && wrongQueue.length === 0) { goToNextPage(); return; }
-  document.getElementById("page5").classList.remove("hidden");
-  document.getElementById("answerSection3").classList.add("hidden");
-  const i = getCurrentIndex();
-  document.getElementById("phase3-original").textContent = words[i];
-  document.getElementById("phase3-example").textContent = examples[i] || "";
-}
-
-function showAnswer3() {
-  const i = getCurrentIndex();
-  document.getElementById("phase3-answer").textContent = translations[i];
-  document.getElementById("answerSection3").classList.remove("hidden");
-}
-
-function markAnswer3(correct) {
-  const i = getCurrentIndex();
-  if (!correct) wrongQueue.push(i);
-  nextIndex();
-  showPhase3();
-}
-
-// === Общие функции ===
-function nextIndex() {
-  if (wrongQueue.length > 0) currentIndex = wrongQueue.shift();
-  else currentIndex++;
-  updateProgress();
-}
-
-function getCurrentIndex() {
-  return (wrongQueue.length > 0) ? wrongQueue[0] : currentIndex;
-}
-
-function goToNextPage() {
-  if (currentPhase === 3) startPhase(4);
-  else if (currentPhase === 4) startPhase(5);
-  else if (currentPhase === 5) startPhase(6);
-  else finishLesson();
-}
-
-// === Повторить этап (возврат на предыдущую фазу) ===
-function repeatPhase() {
-  if (currentPhase > 3) {
-    startPhase(currentPhase - 1); // возврат на предыдущую фазу
-  } else {
-    startPhase(3); // если на фазе 3 — перезапуск урока
-  }
-}
-
-function finishLesson() {
-  hideAllPages();
-  document.getElementById("finishPage").classList.remove("hidden");
-}
-
-function backToMenu() {
-  hideAllPages();
-  document.getElementById("page0").classList.remove("hidden");
-  document.getElementById("menuDropdown").classList.add("show");
-}
-
-// === Диктант (Фаза 4) ===
-function startDictationPhase() {
-  dictationQueue = words.map((_, i) => i);
-  currentIndex = 0;
-  dictationWaiting = false;
-  showNextDictationWord();
-}
-
-function showNextDictationWord() {
-  if (dictationQueue.length === 0) { finishLesson(); return; }
-  currentIndex = dictationQueue[0];
-  dictationWaiting = false;
-  hideAllPages();
-  document.getElementById("page6").classList.remove("hidden");
-  document.getElementById("dictation-translation").textContent = translations[currentIndex];
-  document.getElementById("dictation-example").textContent = examples[currentIndex] || "";
-  document.getElementById("dictation-input").value = "";
-  document.getElementById("dictation-feedback").textContent = "";
-}
-
-function checkDictation() {
-  if (dictationWaiting) return;
-  const input = document.getElementById("dictation-input").value.trim();
-  if (input.toLowerCase() === words[currentIndex].toLowerCase()) {
-    document.getElementById("dictation-feedback").textContent = "✅ Верно!";
-    dictationQueue.shift();
-    setTimeout(showNextDictationWord, 600);
-  } else {
-    document.getElementById("dictation-feedback").textContent = `❌ Ошибка. Правильно: ${words[currentIndex]}`;
-    dictationQueue.push(dictationQueue.shift());
-    dictationWaiting = true;
-  }
-}
-
-function nextDictationAfterError() {
-  if (!dictationWaiting) return;
-  showNextDictationWord();
-}
-
-// === Горячие клавиши ===
-document.addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    if (!document.getElementById("page3").classList.contains("hidden")) showNextCard();
-    if (!document.getElementById("page4").classList.contains("hidden")) {
-      if (document.getElementById("answerSection").classList.contains("hidden")) showAnswer();
-      else markAnswer(true);
-    }
-    if (!document.getElementById("page5").classList.contains("hidden")) {
-      if (document.getElementById("answerSection3").classList.contains("hidden")) showAnswer3();
-      else markAnswer3(true);
-    }
-    if (!document.getElementById("page6").classList.contains("hidden")) checkDictation();
-  }
-  if (e.code === "Space") {
-    if (!document.getElementById("page4").classList.contains("hidden")) showAnswer();
-    if (!document.getElementById("page5").classList.contains("hidden")) showAnswer3();
-  }
-});
-
-</script>
 </body>
 </html>
-
-
-
