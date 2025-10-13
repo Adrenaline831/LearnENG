@@ -1,101 +1,322 @@
-   margin: 0;
-      font-family: Arial, sans-serif;
-      background-color: #4F3A41; /* 60% */
-      color: #fff;
-      padding: 10px;
-    }
+/* === ПЕРЕМЕННЫЕ ТЕМЫ === */
+:root {
+  /* Тема 1: материнская (по умолчанию) */
+  --bg-color: #4F3A41;
+  --text-color: #fff;
+  --accent-color: #FFD580;
+  --menu-bg: #3B2A30;
+  --menu-hover: #241E20;
+  --submenu-bg: #3B2A30;
+  --submenu-hover: #241E20;
+  --button-bg: #3B2A30;
+  --button-hover: #241E20;
+  --input-bg: #3B2A30;
+  --input-text: #fff;
+  --placeholder-color: #aaa;
+  --progress-bg: #3B2A30;
+  --progress-bar: #7FC29B;
+  --progress-text: #000;
+  --dictionary-color: #FFD580;
+  --example-color: #ccc;
+  --finish-color: #7FC29B;
+  --strong-color: #FFD580;
+}
 
-    h2 {
-      font-size: 1.2em;
-      margin-bottom: 10px;
-      color: #fff;
-    }
+/* Тема 2: зелёно-коричневая */
+body.theme-second {
+  --bg-color: #2E342A;
+  --text-color: #77754C;
+  --accent-color: #896C5C;
+  --menu-bg: #49352A;
+  --menu-hover: #896C5C;
+  --submenu-bg: #4D5031;
+  --submenu-hover: #896C5C;
+  --button-bg: #49352A;
+  --button-hover: #896C5C;
+  --input-bg: #4D5031;
+  --input-text: #77754C;
+  --placeholder-color: #77754C99;
+  --progress-bg: #4D5031;
+  --progress-bar: #896C5C;
+  --progress-text: #2E342A;
+  --dictionary-color: #896C5C;
+  --example-color: #77754C99;
+  --finish-color: #896C5C;
+  --strong-color: #896C5C;
+}
 
-    .menu {
-      margin-bottom: 15px;
-    }
+/* Тема 3: тёмно-красная */
+body.theme-darkred {
+  --bg-color: #140F0C;
+  --text-color: #AF9E8A;
+  --accent-color: #860000;
+  --menu-bg: #510A04;
+  --menu-hover: #860000;
+  --submenu-bg: #510A04;
+  --submenu-hover: #860000;
+  --button-bg: #510A04;
+  --button-hover: #860000;
+  --input-bg: #4F3C35;
+  --input-text: #AF9E8A;
+  --placeholder-color: #AF9E8A99;
+  --progress-bg: #4F3C35;
+  --progress-bar: #860000;
+  --progress-text: #140F0C;
+  --dictionary-color: #860000;
+  --example-color: #AF9E8A99;
+  --finish-color: #860000;
+  --strong-color: #860000;
+}
 
-    button {
-      background-color: #3B2A30; /* 30% */
-      color: #fff;
-      border: none;
-      padding: 10px 15px;
-      border-radius: 8px;
-      font-size: 1em;
-      cursor: pointer;
-      transition: background 0.3s;
-      margin: 5px 0;
-      width: 100%;
-    }
+/* === ГЛАВНЫЕ СТИЛИ === */
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  padding: 10px;
+}
 
-    button:hover {
-      background-color: #241E20; /* 10% */
-    }
+h2 {
+  font-size: 1.2em;
+  margin-bottom: 10px;
+  color: var(--text-color);
+}
 
-    textarea, input[type="text"] {
-      width: 100%;
-      padding: 10px;
-      border-radius: 8px;
-      border: none;
-      margin: 5px 0 10px 0;
-      background: #3B2A30;
-      color: #fff;
-      font-size: 1em;
-    }
+p {
+  margin: 10px 0;
+  font-size: 1.1em;
+}
 
-    textarea::placeholder, input::placeholder {
-      color: #aaa;
-    }
+strong {
+  color: var(--strong-color);
+}
 
-    .dropdown, .submenu {
-      display: none;
-      margin: 5px 0 0 10px;
-      background: #3B2A30;
-      border-radius: 8px;
-      padding: 5px;
-    }
+/* === МЕНЮ === */
+.menu__btn {
+  background-color: var(--menu-bg);
+  color: var(--text-color);
+  border: none;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-size: 1.1em;
+  cursor: pointer;
+  transition: background 0.3s;
+  width: 100%;
+  text-align: left;
+}
 
-    .submenu div {
-      padding: 8px;
-      cursor: pointer;
-      border-radius: 6px;
-    }
+.menu__btn:hover {
+  background-color: var(--menu-hover);
+}
 
-    .submenu div:hover {
-      background: #241E20;
-    }
+.menu__nav {
+  list-style: none;
+  padding: 0;
+  margin: 10px 0;
+  display: none;
+  background: var(--submenu-bg);
+  border-radius: 8px;
+  overflow: hidden;
+}
 
-    #progressBarContainer {
-      width: 100%;
-      background: #3B2A30;
-      border-radius: 8px;
-      margin: 15px 0;
-      overflow: hidden;
-    }
+.menu__nav.show {
+  display: block;
+}
 
-    #progressBar {
-      height: 20px;
-      width: 0%;
-      background: #7FC29B; /* контрастный зелёный */
-      text-align: center;
-      color: #000;
-      font-weight: bold;
-      line-height: 20px;
-      border-radius: 8px;
-    }
+.menu__nav-item {
+  margin: 5px 0;
+}
 
-    #progressText {
-      text-align: center;
-      margin: 5px 0;
-      font-size: 0.9em;
-      color: #ddd;
-    }
+.level-btn {
+  background: var(--menu-bg);
+  color: var(--text-color);
+  border: none;
+  padding: 10px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-weight: bold;
+  border-radius: 6px;
+  transition: background 0.3s;
+}
 
-    p {
-      margin: 10px 0;
-      font-size: 1.1em;
-    }
+.level-btn:hover {
+  background-color: var(--menu-hover);
+}
 
-    strong {
-      color: #FFD580; /* акцент *
+.submenu {
+  list-style: none;
+  padding-left: 15px;
+  margin: 5px 0;
+  display: none;
+}
 
+.submenu li {
+  padding: 8px;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.3s;
+}
+
+.submenu li:hover {
+  background: var(--submenu-hover);
+}
+
+.submenu li.active {
+  background: var(--accent-color);
+  color: var(--bg-color);
+  font-weight: bold;
+}
+
+/* === КНОПКИ === */
+button {
+  background-color: var(--button-bg);
+  color: var(--text-color);
+  border: none;
+  padding: 10px 15px;
+  border-radius: 8px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background 0.3s;
+  margin: 5px 0;
+}
+
+button:hover {
+  background-color: var(--button-hover);
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* === ПОЛЯ ВВОДА === */
+textarea, input[type="text"] {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  margin: 5px 0 10px 0;
+  background: var(--input-bg);
+  color: var(--input-text);
+  font-size: 1em;
+}
+
+textarea::placeholder, input::placeholder {
+  color: var(--placeholder-color);
+}
+
+/* === ПРОГРЕСС === */
+#progressBarContainer {
+  width: 100%;
+  background: var(--progress-bg);
+  border-radius: 8px;
+  margin: 15px 0;
+  overflow: hidden;
+}
+
+#progressBar {
+  height: 20px;
+  width: 0%;
+  background: var(--progress-bar);
+  text-align: center;
+  color: var(--progress-text);
+  font-weight: bold;
+  line-height: 20px;
+  border-radius: 8px;
+  transition: width 0.4s;
+}
+
+#progressText {
+  text-align: center;
+  margin: 5px 0;
+  font-size: 0.9em;
+  color: var(--text-color);
+}
+
+/* === СЛОВАРЬ === */
+.dictionary-btn {
+  background: transparent;
+  border: none;
+  color: var(--dictionary-color);
+  font-size: 22px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.dictionary-btn:hover {
+  transform: scale(1.2);
+}
+
+.dictionary-btn.active {
+  color: var(--accent-color);
+}
+
+/* === ЭЛЕМЕНТЫ === */
+.example {
+  font-style: italic;
+  color: var(--example-color);
+  margin-top: 5px;
+}
+
+.hidden {
+  display: none;
+}
+
+/* === ЗАВЕРШЕНИЕ === */
+#finishPage h2 {
+  color: var(--finish-color);
+  font-size: 1.5em;
+}
+
+/* === АДАПТИВ === */
+@media (max-width: 768px) {
+  body {
+    padding: 5px;
+    font-size: 0.9em;
+  }
+
+  h2 {
+    font-size: 1em;
+  }
+
+  p {
+    font-size: 1em;
+  }
+
+  .menu__btn,
+  .level-btn,
+  button {
+    font-size: 1em;
+    padding: 8px 12px;
+  }
+
+  .submenu li {
+    padding: 6px;
+    font-size: 0.95em;
+  }
+
+  textarea, input[type="text"] {
+    font-size: 0.95em;
+    padding: 8px;
+  }
+
+  #progressBar {
+    height: 16px;
+    font-size: 0.8em;
+    line-height: 16px;
+  }
+
+  #progressText {
+    font-size: 0.8em;
+  }
+
+  .dictionary-btn {
+    font-size: 18px;
+  }
+
+  #finishPage h2 {
+    font-size: 1.3em;
+  }
+}
