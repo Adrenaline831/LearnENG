@@ -552,51 +552,83 @@ function backToMenu() {
   document.getElementById("menuDropdown").classList.add("show");
 }
 
-// === Диктант (Фаза 6) ===
+// ===== Исправленный блок: Диктант (Фаза 6) =====
+
 function startDictationPhase() {
+  // создаём очередь индексов всех слов
   dictationQueue = words.map((_, i) => i);
-  currentIndex = 0;
   dictationWaiting = false;
   showNextDictationWord();
 }
 
 function showNextDictationWord() {
-  if (dictationQueue.length === 0) { finishLesson(); return; }
+  if (!dictationQueue || dictationQueue.length === 0) {
+    finishLesson();
+    return;
+  }
+
+  // текущий индекс — первый в очереди
   currentIndex = dictationQueue[0];
   dictationWaiting = false;
+
   hideAllPages();
   const page = document.getElementById("page6");
   page.classList.remove("hidden");
-  document.getElementById("dictation-translation").textContent = translations[currentIndex];
+
+  // показываем перевод и пример
+  document.getElementById("dictation-translation").textContent = translations[currentIndex] || "";
   document.getElementById("dictation-example").textContent = examples[currentIndex] || "";
-  document.getElementById("dictation-input").value = "";
+
+  // подготавливаем поле ввода и фидбек
+  const inputEl = document.getElementById("dictation-input");
+  inputEl.value = "";
+  inputEl.focus();
   document.getElementById("dictation-feedback").textContent = "";
 
+  // кнопка озвучки (создаём единожды)
   let btn = document.getElementById("speakDictationBtn");
   if (!btn) {
     btn = document.createElement("button");
     btn.id = "speakDictationBtn";
     btn.textContent = "🔊";
+    // вставляем кнопку внутрь страницы диктанта (после input)
     page.appendChild(btn);
   }
   btn.onclick = () => speakWord(words[currentIndex]);
 }
 
 function checkDictation() {
+  // если мы уже в состоянии «ожидание следующего после ошибки», игнорируем повторные нажатия
   if (dictationWaiting) return;
-  const input = document.getElementById("dictation-input").value.trim();
-  if (input.toLowerCase() === words[currentIndex].toLowerCase()) {
+
+  // используем id из разметки: "dictation-input" и "dictation-feedback"
+  const inputEl = document.getElementById("dictation-input");
+  const userAnswer = (inputEl.value || "").trim();
+  const correctWord = words[currentIndex] || "";
+
+  if (!userAnswer) {
+    document.getElementById("dictation-feedback").textContent = "Введите слово.";
+    return;
+  }
+
+  if (userAnswer.toLowerCase() === correctWord.toLowerCase()) {
+    // правильно — удаляем текущий элемент из очереди и переходим к следующему
     document.getElementById("dictation-feedback").textContent = "✅ Верно!";
     dictationQueue.shift();
-    setTimeout(showNextDictationWord, 600);
+    // лёгкая задержка, чтобы пользователь увидел фидбек
+    setTimeout(showNextDictationWord, 500);
   } else {
-    document.getElementById("dictation-feedback").textContent = `❌ Ошибка. Правильно: ${words[currentIndex]}`;
+    // неверно — показываем правильный ответ в поле ввода и перемещаем слово в конец очереди
+    document.getElementById("dictation-feedback").textContent = `❌ Неверно. Слово будет повторено позже.`;
+    inputEl.value = correctWord; // показываем правильный ответ в поле ввода
+    // переместить текущую (первую) запись в конец очереди
     dictationQueue.push(dictationQueue.shift());
-    dictationWaiting = true;
+    dictationWaiting = true; // теперь ждём, пока пользователь нажмёт "Следующее"
   }
 }
 
 function nextDictationAfterError() {
+  // кнопка "Следующее" активна только после ошибки (dictationWaiting === true)
   if (!dictationWaiting) return;
   showNextDictationWord();
 }
@@ -926,6 +958,7 @@ function addSettingsMenu() {
 
 </body>
 </html>
+
 
 
 
