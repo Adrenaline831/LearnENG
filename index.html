@@ -118,20 +118,30 @@
 let lessonsDB = {};
 let currentLesson = null;
 let currentLessonElement = null;
+
 let words = [];
 let transcriptions = [];
 let translations = [];
 let examples = [];
-let currentPhase = 0; // 3 - карточки, 4 - перевод->оригинал, 5 - оригинал->перевод, 6 - диктант
+
+let currentPhase = 0;
+
 let currentIndex = 0;
-let wrongQueue = [];
-let dictationQueue = [];
-let dictationWaiting = false;
-let pullExamplesFromJSON = true;
+
 let lastSpokenWord = "";
 let slowMode = false;
 
+let pullExamplesFromJSON = true;
+
+/* === Очереди обучения === */
+let mainQueue = [];
+let wrongQueue = [];
+let queuePosition = 0;
+let repeatingWrong = false;
+
+
 /* === LocalStorage: словарь и завершённые уроки === */
+
 const LOCAL_STORAGE_KEY = "myDictionary";
 const FINISHED_LESSONS_KEY = "finishedLessons";
 
@@ -139,13 +149,16 @@ function getMyDictionary() {
   const dict = localStorage.getItem(LOCAL_STORAGE_KEY);
   return dict ? JSON.parse(dict) : [];
 }
+
 function saveMyDictionary(dict) {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dict));
 }
+
 function getFinishedLessons() {
   const finished = localStorage.getItem(FINISHED_LESSONS_KEY);
   return finished ? JSON.parse(finished) : {};
 }
+
 function saveFinishedLesson(level, lessonKey) {
   const finished = getFinishedLessons();
   if (!finished[level]) finished[level] = [];
@@ -153,12 +166,16 @@ function saveFinishedLesson(level, lessonKey) {
   localStorage.setItem(FINISHED_LESSONS_KEY, JSON.stringify(finished));
 }
 
+
 /* === Проверка словаря === */
+
 function isInDictionary(word) {
   return getMyDictionary().includes(word);
 }
+
 function toggleDictionary(word, button) {
   let dict = getMyDictionary();
+
   if (dict.includes(word)) {
     dict = dict.filter(w => w !== word);
     if (button) button.textContent = "☆";
@@ -166,49 +183,71 @@ function toggleDictionary(word, button) {
     dict.push(word);
     if (button) button.textContent = "★";
   }
+
   saveMyDictionary(dict);
 }
 
+
 /* === Озвучка === */
+
 function speakWord(word) {
+
   if (!word) return;
+
   const utter = new SpeechSynthesisUtterance(word);
+
   utter.lang = "en-US";
   utter.rate = slowMode ? 0.7 : 1.0;
+
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
+
   slowMode = (lastSpokenWord === word) ? !slowMode : false;
   lastSpokenWord = word;
 }
 
+
 /* === Загружаем JSON с уроками === */
+
 fetch("lessons.json")
+
   .then(res => res.json())
+
   .then(data => {
     lessonsDB = data;
     generateLevelsMenu();
     addSettingsMenu();
   })
+
   .catch(err => console.error("Ошибка загрузки JSON:", err));
 
+
 /* === Меню === */
+
 document.getElementById("menuBtn").addEventListener("click", () => {
   document.getElementById("menuDropdown").classList.toggle("show");
 });
 
-/* === Генерация уровней и уроков (единственная версия) === */
+
+/* === Генерация уровней и уроков === */
+
 function generateLevelsMenu() {
+
   const menu = document.getElementById("menuDropdown");
+
   menu.innerHTML = "";
+
   const finished = getFinishedLessons();
 
   Object.keys(lessonsDB).forEach(level => {
+
     const li = document.createElement("li");
     li.classList.add("menu__nav-item");
 
     const btn = document.createElement("button");
     btn.textContent = level;
     btn.classList.add("level-btn");
+
     li.appendChild(btn);
 
     const ul = document.createElement("ul");
@@ -216,7 +255,9 @@ function generateLevelsMenu() {
     ul.style.display = "none";
 
     Object.keys(lessonsDB[level]).forEach(lessonKey => {
+
       const lessonLi = document.createElement("li");
+
       lessonLi.textContent = lessonsDB[level][lessonKey].title;
       lessonLi.style.cursor = "pointer";
 
@@ -226,259 +267,152 @@ function generateLevelsMenu() {
       }
 
       lessonLi.addEventListener("click", () => {
+
         startLesson(level, lessonKey);
 
         if (currentLessonElement) {
           currentLessonElement.style.backgroundColor = "";
           currentLessonElement.style.color = "";
         }
+
         lessonLi.style.backgroundColor = "#ffd966";
         lessonLi.style.color = "#000";
+
         currentLessonElement = lessonLi;
 
         setTimeout(() => {
-          document.getElementById("page3").scrollIntoView({ behavior: "smooth", block: "start" });
+          document.getElementById("page3").scrollIntoView({ behavior: "smooth" });
         }, 300);
+
       });
 
       ul.appendChild(lessonLi);
+
     });
 
     li.appendChild(ul);
     menu.appendChild(li);
 
     btn.addEventListener("click", () => {
+
       const isShown = ul.style.display === "block";
+
       document.querySelectorAll(".submenu").forEach(sub => sub.style.display = "none");
+
       ul.style.display = isShown ? "none" : "block";
+
     });
+
   });
 
   const dictBtn = document.createElement("li");
+
   dictBtn.innerHTML = `<button id="myDictionaryBtn">★ Мой словарь</button>`;
+
   menu.appendChild(dictBtn);
-  document.getElementById("myDictionaryBtn").addEventListener("click", startDictionaryLesson);
+
+  document.getElementById("myDictionaryBtn")
+    .addEventListener("click", startDictionaryLesson);
 }
 
-/* === Настройки (единая версия) === */
-function addSettingsMenu() {
-  const menu = document.getElementById("menuDropdown");
-
-  const settingsLi = document.createElement("li");
-  settingsLi.classList.add("menu__nav-item");
-
-  const settingsBtn = document.createElement("button");
-  settingsBtn.textContent = "⚙ Настройки";
-  settingsBtn.classList.add("level-btn");
-  settingsLi.appendChild(settingsBtn);
-
-  const settingsWindow = document.createElement("div");
-  settingsWindow.id = "settingsWindow";
-  settingsWindow.style.display = "none";
-  settingsWindow.style.position = "relative";
-  settingsWindow.style.zIndex = "10";
-  settingsWindow.style.padding = "10px";
-  settingsWindow.style.marginTop = "5px";
-  settingsWindow.style.backgroundColor = "#3a3a3a";
-  settingsWindow.style.borderRadius = "5px";
-
-  const resetBtn = document.createElement("button");
-  resetBtn.textContent = "Сброс примеров";
-  resetBtn.style.display = "block";
-  resetBtn.style.width = "100%";
-  resetBtn.style.marginBottom = "5px";
-  resetBtn.onclick = () => {
-    pullExamplesFromJSON = false;
-    examples = words.map(() => "");
-    alert("Примеры больше не подтягиваются из JSON!");
-  };
-  settingsWindow.appendChild(resetBtn);
-
-  const goToThemesBtn = document.createElement("button");
-  goToThemesBtn.textContent = "Перейти к темам";
-  goToThemesBtn.style.display = "block";
-  goToThemesBtn.style.width = "100%";
-  goToThemesBtn.onclick = () => {
-    hideAllPages();
-    document.getElementById("page0").classList.remove("hidden");
-    document.getElementById("menuDropdown").classList.add("show");
-  };
-  settingsWindow.appendChild(goToThemesBtn);
-
-  settingsLi.appendChild(settingsWindow);
-  menu.appendChild(settingsLi);
-
-  settingsBtn.addEventListener("click", () => {
-    const isShown = settingsWindow.style.display === "block";
-    document.querySelectorAll("#menuDropdown > li > div").forEach(div => div.style.display = "none");
-    settingsWindow.style.display = isShown ? "none" : "block";
-  });
-}
-
-/* === Запуск урока из JSON === */
-function startLesson(level, lessonKey) {
-  const lesson = lessonsDB[level][lessonKey];
-  if (!lesson) return;
-
-  currentLesson = { level, lessonKey };
-  words = lesson.english || [];
-  transcriptions = lesson.transcriptions || [];
-  translations = lesson.translated || [];
-  examples = pullExamplesFromJSON ? (lesson.example || []) : words.map(() => "");
-  currentPhase = 3;
-  currentIndex = 0;
-  wrongQueue = [];
-  startPhase(currentPhase);
-  document.getElementById("menuDropdown").classList.remove("show");
-}
-
-/* === Запуск урока из словаря === */
-function startDictionaryLesson() {
-  const dict = getMyDictionary();
-  if (dict.length === 0) { alert("Ваш словарь пуст."); return; }
-
-  let foundWords = [], foundTrans = [], foundTransl = [], foundExamples = [];
-  for (const word of dict) {
-    let found = false;
-    for (const levelKey in lessonsDB) {
-      for (const lessonKey in lessonsDB[levelKey]) {
-        const lesson = lessonsDB[levelKey][lessonKey];
-        const idx = lesson.english.indexOf(word);
-        if (idx !== -1) {
-          foundWords.push(lesson.english[idx]);
-          foundTrans.push(lesson.transcriptions[idx] || "");
-          foundTransl.push(lesson.translated[idx] || "(перевод)");
-          foundExamples.push(lesson.example ? lesson.example[idx] : "");
-          found = true;
-          break;
-        }
-      }
-      if (found) break;
-    }
-    if (!found) {
-      foundWords.push(word);
-      foundTrans.push("");
-      foundTransl.push("(не найдено)");
-      foundExamples.push("");
-    }
-  }
-
-  words = foundWords;
-  transcriptions = foundTrans;
-  translations = foundTransl;
-  examples = foundExamples;
-  currentPhase = 3;
-  currentIndex = 0;
-  wrongQueue = [];
-  hideAllPages();
-  startPhase(currentPhase);
-  document.getElementById("menuDropdown").classList.remove("show");
-}
-
-/* === Самостоятельный ввод слов === */
-function goToTranscription() {
-  const rawWords = document.getElementById("englishWords").value.trim();
-  if (!rawWords) { alert("Введите хотя бы одно слово"); return; }
-  words = rawWords.split("\n").map(s => s.trim()).filter(s => s);
-  transcriptions = words.map(() => "");
-  translations = words.map(() => "");
-  examples = words.map(() => "");
-  hideAllPages();
-  document.getElementById("page1_5").classList.remove("hidden");
-}
-
-function skipTranscription() {
-  transcriptions = words.map(() => "");
-  goToTranslations();
-}
-
-function goToTranslations() {
-  const rawTrans = document.getElementById("englishTranscription").value.trim();
-  if (rawTrans) {
-    transcriptions = rawTrans.split("\n").map(s => s.trim());
-    if (transcriptions.length !== words.length) { alert("Количество транскрипций должно совпадать с количеством слов"); return; }
-  } else transcriptions = words.map(() => "");
-  hideAllPages();
-  document.getElementById("page2").classList.remove("hidden");
-}
-
-function startSelfLearning() {
-  const rawTransl = document.getElementById("translatedWords").value.trim();
-  if (!rawTransl) { alert("Введите переводы"); return; }
-  translations = rawTransl.split("\n").map(s => s.trim());
-  if (translations.length !== words.length) { alert("Количество переводов должно совпадать с количеством слов"); return; }
-  examples = words.map(() => "");
-  currentPhase = 3;
-  currentIndex = 0;
-  wrongQueue = [];
-  hideAllPages();
-  startPhase(currentPhase);
-}
 
 /* === Управление страницами === */
+
 function hideAllPages() {
-  ["page0","page1_5","page2","page3","page4","page5","page6","finishPage"].forEach(id => {
+
+  [
+    "page0","page1_5","page2",
+    "page3","page4","page5","page6",
+    "finishPage"
+  ].forEach(id => {
+
     const el = document.getElementById(id);
     if (el) el.classList.add("hidden");
+
   });
+
 }
 
-// =======================
-// Универсальная система очередей
-// =======================
 
-let mainQueue = [];
-let wrongQueue = [];
-let queuePosition = 0;
-let repeatingWrong = false;
+/* =======================
+   Универсальная система очередей
+   ======================= */
 
-// Инициализация фазы
 function initQueue() {
+
   mainQueue = words.map((_, i) => i);
+
   wrongQueue = [];
+
   queuePosition = 0;
+
   repeatingWrong = false;
+
   updateProgress();
 }
 
 function getCurrentIndex() {
+
   if (!repeatingWrong) {
     return mainQueue[queuePosition];
   } else {
     return wrongQueue[queuePosition];
   }
+
 }
 
 function goNextInQueue() {
+
   queuePosition++;
 
-  if (!repeatingWrong && queuePosition >= mainQueue.length) {
-    if (wrongQueue.length > 0) {
-      repeatingWrong = true;
-      queuePosition = 0;
-    } else {
+  if (!repeatingWrong) {
+
+    if (queuePosition >= mainQueue.length) {
+
+      if (wrongQueue.length > 0) {
+
+        repeatingWrong = true;
+        queuePosition = 0;
+
+      } else {
+
+        goToNextPage();
+        return;
+
+      }
+
+    }
+
+  } else {
+
+    if (queuePosition >= wrongQueue.length) {
+
       goToNextPage();
       return;
-    }
-  }
 
-  else if (repeatingWrong && queuePosition >= wrongQueue.length) {
-    goToNextPage();
-    return;
+    }
+
   }
 
   updateProgress();
 }
 
-// =======================
-// Прогресс
-// =======================
+
+/* =======================
+   Прогресс
+   ======================= */
 
 function updateProgress() {
+
   const total = words.length;
-  const done = repeatingWrong
-    ? total
-    : Math.min(queuePosition, total);
+
+  let done;
+
+  if (!repeatingWrong) {
+    done = Math.min(queuePosition, total);
+  } else {
+    done = total;
+  }
 
   const percent = Math.min(100, Math.round((done / total) * 100));
 
@@ -486,31 +420,37 @@ function updateProgress() {
   const text = document.getElementById("progressText");
 
   if (bar && text) {
+
     bar.style.width = percent + "%";
     bar.textContent = percent + "%";
+
     text.textContent = `Прогресс: ${done}/${total}`;
+
   }
+
 }
 
-// =======================
-// Фаза 2
-// =======================
+
+/* =======================
+   Фаза 2
+   ======================= */
 
 function showPhase2() {
-  if (queuePosition >= mainQueue.length && !repeatingWrong && wrongQueue.length === 0) {
-    goToNextPage();
-    return;
-  }
 
+  hideAllPages();
   document.getElementById("page4").classList.remove("hidden");
+
   document.getElementById("answerSection").classList.add("hidden");
 
   const i = getCurrentIndex();
+
   document.getElementById("phase2-translation").textContent = translations[i];
   document.getElementById("phase2-example").textContent = examples[i] || "";
+
 }
 
 function markAnswer(correct) {
+
   const i = getCurrentIndex();
 
   if (!correct && !repeatingWrong) {
@@ -518,28 +458,34 @@ function markAnswer(correct) {
   }
 
   goNextInQueue();
-  showPhase2();
-}
 
-// =======================
-// Фаза 3
-// =======================
-
-function showPhase3() {
-  if (queuePosition >= mainQueue.length && !repeatingWrong && wrongQueue.length === 0) {
-    goToNextPage();
-    return;
+  if (queuePosition < mainQueue.length || repeatingWrong) {
+    showPhase2();
   }
 
+}
+
+
+/* =======================
+   Фаза 3
+   ======================= */
+
+function showPhase3() {
+
+  hideAllPages();
   document.getElementById("page5").classList.remove("hidden");
+
   document.getElementById("answerSection3").classList.add("hidden");
 
   const i = getCurrentIndex();
+
   document.getElementById("phase3-original").textContent = words[i];
   document.getElementById("phase3-example").textContent = examples[i] || "";
+
 }
 
 function markAnswer3(correct) {
+
   const i = getCurrentIndex();
 
   if (!correct && !repeatingWrong) {
@@ -547,41 +493,63 @@ function markAnswer3(correct) {
   }
 
   goNextInQueue();
-  showPhase3();
+
+  if (queuePosition < mainQueue.length || repeatingWrong) {
+    showPhase3();
+  }
+
 }
 
-// =======================
-// Диктант (Фаза 4)
-// =======================
+
+/* =======================
+   Диктант
+   ======================= */
 
 let dictationQueue = [];
 let dictationRepeatingWrong = false;
 let dictationPos = 0;
 
 function startDictationPhase() {
+
   dictationQueue = words.map((_, i) => i);
+
   wrongQueue = [];
+
   dictationPos = 0;
+
   dictationRepeatingWrong = false;
+
   showNextDictationWord();
 }
 
 function showNextDictationWord() {
+
   if (!dictationRepeatingWrong && dictationPos >= dictationQueue.length) {
+
     if (wrongQueue.length > 0) {
+
       dictationRepeatingWrong = true;
+
       dictationQueue = [...wrongQueue];
+
       wrongQueue = [];
+
       dictationPos = 0;
+
     } else {
+
       finishLesson();
       return;
+
     }
+
   }
 
   if (dictationRepeatingWrong && dictationPos >= dictationQueue.length) {
+
     finishLesson();
     return;
+
   }
 
   hideAllPages();
@@ -593,32 +561,47 @@ function showNextDictationWord() {
   document.getElementById("dictation-example").textContent = examples[index] || "";
 
   const input = document.getElementById("dictation-input");
+
   input.value = "";
   input.focus();
 
   document.getElementById("dictation-feedback").textContent = "";
+
 }
 
 function checkDictation() {
+
   const index = dictationQueue[dictationPos];
+
   const inputEl = document.getElementById("dictation-input");
+
   const userAnswer = inputEl.value.trim();
+
   const correctWord = words[index];
 
   if (!userAnswer) return;
 
   if (userAnswer.toLowerCase() === correctWord.toLowerCase()) {
+
     dictationPos++;
     showNextDictationWord();
+
   } else {
+
     inputEl.value = correctWord;
+
     wrongQueue.push(index);
+
   }
+
 }
 
 function nextDictationAfterError() {
+
   dictationPos++;
+
   showNextDictationWord();
+
 }
 </script>
 
