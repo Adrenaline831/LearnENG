@@ -110,8 +110,12 @@
 </div>
 
 <script>
+<script>
 /* ====================================================
-   Очистка и единая рабочая версия скрипта проекта
+   Единая исправленная версия JS (заменить весь старый <script>)
+   Исправляет баг с повторением всех слов — теперь повторяются
+   только те слова, которые пользователь пометил крестиком.
+   Повторы тасуются при каждом цикле.
    ==================================================== */
 
 /* === Глобальные переменные === */
@@ -124,24 +128,28 @@ let transcriptions = [];
 let translations = [];
 let examples = [];
 
-let currentPhase = 0;
+let currentPhase = 0; // 3 - карточки, 4 - перевод->оригинал, 5 - оригинал->перевод, 6 - диктант
+let currentIndex = null; // текущий индекс (в массиве words)
 
-let currentIndex = 0;
+// Очереди/позиции для фаз 3-5 (общая схема)
+let mainOrder = [];    // порядок первоначального прохода (индексы)
+let mainPos = 0;       // позиция в mainOrder
+let repeatQueue = [];  // очередь повторов — туда попадают только ошибки (индексы)
+let inRepeatMode = false; // флаг, что мы сейчас на повторе
+
+// Для диктанта — отдельная очередь повторов
+let dictMainOrder = [];
+let dictMainPos = 0;
+let dictRepeatQueue = [];
+let dictInRepeat = false;
+let dictWaitingAfterError = false;
+
+let pullExamplesFromJSON = true;
 
 let lastSpokenWord = "";
 let slowMode = false;
 
-let pullExamplesFromJSON = true;
-
-/* === Очереди обучения === */
-let mainQueue = [];
-let wrongQueue = [];
-let queuePosition = 0;
-let repeatingWrong = false;
-
-
 /* === LocalStorage: словарь и завершённые уроки === */
-
 const LOCAL_STORAGE_KEY = "myDictionary";
 const FINISHED_LESSONS_KEY = "finishedLessons";
 
@@ -149,16 +157,13 @@ function getMyDictionary() {
   const dict = localStorage.getItem(LOCAL_STORAGE_KEY);
   return dict ? JSON.parse(dict) : [];
 }
-
 function saveMyDictionary(dict) {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dict));
 }
-
 function getFinishedLessons() {
   const finished = localStorage.getItem(FINISHED_LESSONS_KEY);
   return finished ? JSON.parse(finished) : {};
 }
-
 function saveFinishedLesson(level, lessonKey) {
   const finished = getFinishedLessons();
   if (!finished[level]) finished[level] = [];
@@ -166,16 +171,12 @@ function saveFinishedLesson(level, lessonKey) {
   localStorage.setItem(FINISHED_LESSONS_KEY, JSON.stringify(finished));
 }
 
-
-/* === Проверка словаря === */
-
+/* === Словарь (UI кнопка звезды) === */
 function isInDictionary(word) {
   return getMyDictionary().includes(word);
 }
-
 function toggleDictionary(word, button) {
   let dict = getMyDictionary();
-
   if (dict.includes(word)) {
     dict = dict.filter(w => w !== word);
     if (button) button.textContent = "☆";
@@ -183,71 +184,71 @@ function toggleDictionary(word, button) {
     dict.push(word);
     if (button) button.textContent = "★";
   }
-
   saveMyDictionary(dict);
 }
 
-
 /* === Озвучка === */
-
 function speakWord(word) {
-
   if (!word) return;
-
   const utter = new SpeechSynthesisUtterance(word);
-
   utter.lang = "en-US";
   utter.rate = slowMode ? 0.7 : 1.0;
-
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
-
   slowMode = (lastSpokenWord === word) ? !slowMode : false;
   lastSpokenWord = word;
 }
 
+/* === Утилиты === */
+// Fisher-Yates shuffle (изменяет массив на месте)
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
 
-/* === Загружаем JSON с уроками === */
+function hideAllPages() {
+  ["page0","page1_5","page2","page3","page4","page5","page6","finishPage"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.classList.add("hidden");
+  });
+}
 
+/* === Загрузка JSON с уроками и меню === */
 fetch("lessons.json")
-
   .then(res => res.json())
-
   .then(data => {
     lessonsDB = data;
     generateLevelsMenu();
     addSettingsMenu();
   })
+  .catch(err => {
+    console.error("Ошибка загрузки lessons.json:", err);
+    // Можно продолжать — пользователь может вводить свои слова вручную
+    generateLevelsMenu();
+    addSettingsMenu();
+  });
 
-  .catch(err => console.error("Ошибка загрузки JSON:", err));
-
-
-/* === Меню === */
-
+/* === Меню (открытие/закрытие) === */
 document.getElementById("menuBtn").addEventListener("click", () => {
   document.getElementById("menuDropdown").classList.toggle("show");
 });
 
-
-/* === Генерация уровней и уроков === */
-
+/* === Генерация меню уровней и уроков === */
 function generateLevelsMenu() {
-
   const menu = document.getElementById("menuDropdown");
-
   menu.innerHTML = "";
-
   const finished = getFinishedLessons();
 
   Object.keys(lessonsDB).forEach(level => {
-
     const li = document.createElement("li");
     li.classList.add("menu__nav-item");
 
     const btn = document.createElement("button");
     btn.textContent = level;
     btn.classList.add("level-btn");
-
     li.appendChild(btn);
 
     const ul = document.createElement("ul");
@@ -255,10 +256,8 @@ function generateLevelsMenu() {
     ul.style.display = "none";
 
     Object.keys(lessonsDB[level]).forEach(lessonKey => {
-
       const lessonLi = document.createElement("li");
-
-      lessonLi.textContent = lessonsDB[level][lessonKey].title;
+      lessonLi.textContent = lessonsDB[level][lessonKey].title || lessonKey;
       lessonLi.style.cursor = "pointer";
 
       if (finished[level] && finished[level].includes(lessonKey)) {
@@ -267,342 +266,652 @@ function generateLevelsMenu() {
       }
 
       lessonLi.addEventListener("click", () => {
-
         startLesson(level, lessonKey);
-
         if (currentLessonElement) {
           currentLessonElement.style.backgroundColor = "";
           currentLessonElement.style.color = "";
         }
-
         lessonLi.style.backgroundColor = "#ffd966";
         lessonLi.style.color = "#000";
-
         currentLessonElement = lessonLi;
-
         setTimeout(() => {
-          document.getElementById("page3").scrollIntoView({ behavior: "smooth" });
+          document.getElementById("page3").scrollIntoView({ behavior: "smooth", block: "start" });
         }, 300);
-
       });
 
       ul.appendChild(lessonLi);
-
     });
 
     li.appendChild(ul);
     menu.appendChild(li);
 
     btn.addEventListener("click", () => {
-
       const isShown = ul.style.display === "block";
-
       document.querySelectorAll(".submenu").forEach(sub => sub.style.display = "none");
-
       ul.style.display = isShown ? "none" : "block";
-
     });
-
   });
 
-  const dictBtn = document.createElement("li");
-
-  dictBtn.innerHTML = `<button id="myDictionaryBtn">★ Мой словарь</button>`;
-
-  menu.appendChild(dictBtn);
-
-  document.getElementById("myDictionaryBtn")
-    .addEventListener("click", startDictionaryLesson);
+  // пункт "Мой словарь"
+  const dictLi = document.createElement("li");
+  dictLi.classList.add("menu__nav-item");
+  const dictBtn = document.createElement("button");
+  dictBtn.id = "myDictionaryBtn";
+  dictBtn.textContent = "★ Мой словарь";
+  dictBtn.classList.add("level-btn");
+  dictBtn.addEventListener("click", startDictionaryLesson);
+  dictLi.appendChild(dictBtn);
+  menu.appendChild(dictLi);
 }
 
+/* === Настройки (минимально) === */
+function addSettingsMenu() {
+  const menu = document.getElementById("menuDropdown");
+  const settingsLi = document.createElement("li");
+  settingsLi.classList.add("menu__nav-item");
+  const settingsBtn = document.createElement("button");
+  settingsBtn.textContent = "⚙ Настройки";
+  settingsBtn.classList.add("level-btn");
+  settingsLi.appendChild(settingsBtn);
 
-/* === Управление страницами === */
+  const settingsWindow = document.createElement("div");
+  settingsWindow.id = "settingsWindow";
+  settingsWindow.style.display = "none";
+  settingsWindow.style.position = "relative";
+  settingsWindow.style.zIndex = "10";
+  settingsWindow.style.padding = "10px";
+  settingsWindow.style.marginTop = "5px";
+  settingsWindow.style.backgroundColor = "#3a3a3a";
+  settingsWindow.style.borderRadius = "5px";
 
-function hideAllPages() {
+  const resetBtn = document.createElement("button");
+  resetBtn.textContent = "Сброс примеров (выключить подтягивание)";
+  resetBtn.style.display = "block";
+  resetBtn.style.width = "100%";
+  resetBtn.style.marginBottom = "5px";
+  resetBtn.onclick = () => {
+    pullExamplesFromJSON = false;
+    examples = words.map(() => "");
+    alert("Примеры больше не подтягиваются из JSON!");
+  };
+  settingsWindow.appendChild(resetBtn);
 
-  [
-    "page0","page1_5","page2",
-    "page3","page4","page5","page6",
-    "finishPage"
-  ].forEach(id => {
+  const goToThemesBtn = document.createElement("button");
+  goToThemesBtn.textContent = "Перейти к вводу своих слов";
+  goToThemesBtn.style.display = "block";
+  goToThemesBtn.style.width = "100%";
+  goToThemesBtn.onclick = () => {
+    hideAllPages();
+    document.getElementById("page0").classList.remove("hidden");
+    document.getElementById("menuDropdown").classList.add("show");
+  };
+  settingsWindow.appendChild(goToThemesBtn);
 
-    const el = document.getElementById(id);
-    if (el) el.classList.add("hidden");
+  settingsLi.appendChild(settingsWindow);
+  menu.appendChild(settingsLi);
 
+  settingsBtn.addEventListener("click", () => {
+    const isShown = settingsWindow.style.display === "block";
+    document.querySelectorAll("#menuDropdown > li > div").forEach(div => div.style.display = "none");
+    settingsWindow.style.display = isShown ? "none" : "block";
   });
-
 }
 
-
-/* =======================
-   Универсальная система очередей
-   ======================= */
-
-function initQueue() {
-
-  mainQueue = words.map((_, i) => i);
-
-  wrongQueue = [];
-
-  queuePosition = 0;
-
-  repeatingWrong = false;
-
-  updateProgress();
+/* === Запуск урока из JSON === */
+function startLesson(level, lessonKey) {
+  const lesson = lessonsDB[level][lessonKey];
+  if (!lesson) return;
+  currentLesson = { level, lessonKey };
+  words = lesson.english || [];
+  transcriptions = lesson.transcriptions || [];
+  translations = lesson.translated || [];
+  examples = pullExamplesFromJSON ? (lesson.example || []) : words.map(() => "");
+  // сбрасываем очереди
+  initPhaseQueues();
+  currentPhase = 3;
+  hideAllPages();
+  document.getElementById("page3").classList.remove("hidden");
+  showNextCard();
+  document.getElementById("menuDropdown").classList.remove("show");
 }
 
-function getCurrentIndex() {
-
-  if (!repeatingWrong) {
-    return mainQueue[queuePosition];
-  } else {
-    return wrongQueue[queuePosition];
+/* === Запуск урока "Мой словарь" === */
+function startDictionaryLesson() {
+  const dict = getMyDictionary();
+  if (dict.length === 0) {
+    alert("Ваш словарь пуст.");
+    return;
   }
-
-}
-
-function goNextInQueue() {
-
-  queuePosition++;
-
-  if (!repeatingWrong) {
-
-    if (queuePosition >= mainQueue.length) {
-
-      if (wrongQueue.length > 0) {
-
-        repeatingWrong = true;
-        queuePosition = 0;
-
-      } else {
-
-        goToNextPage();
-        return;
-
+  let foundWords = [], foundTrans = = [], foundTransl = [], foundExamples = [];
+  // Ищем слова по базе — если не найдём, добавим как нет перевода
+  for (const word of dict) {
+    let found = false;
+    for (const levelKey in lessonsDB) {
+      for (const lessonKey in lessonsDB[levelKey]) {
+        const lesson = lessonsDB[levelKey][lessonKey];
+        const idx = (lesson.english || []).indexOf(word);
+        if (idx !== -1) {
+          foundWords.push(lesson.english[idx]);
+          foundTrans.push((lesson.transcriptions || [])[idx] || "");
+          foundTransl.push((lesson.translated || [])[idx] || "(перевод)");
+          foundExamples.push((lesson.example || [])[idx] || "");
+          found = true;
+          break;
+        }
       }
-
+      if (found) break;
     }
-
-  } else {
-
-    if (queuePosition >= wrongQueue.length) {
-
-      goToNextPage();
-      return;
-
+    if (!found) {
+      foundWords.push(word);
+      foundTrans.push("");
+      foundTransl.push("(не найдено)");
+      foundExamples.push("");
     }
-
   }
 
+  words = foundWords;
+  transcriptions = foundTrans;
+  translations = foundTransl;
+  examples = foundExamples;
+  initPhaseQueues();
+  currentPhase = 3;
+  hideAllPages();
+  document.getElementById("page3").classList.remove("hidden");
+  showNextCard();
+  document.getElementById("menuDropdown").classList.remove("show");
+}
+
+/* === Ввод своих слов === */
+function goToTranscription() {
+  const rawWords = document.getElementById("englishWords").value.trim();
+  if (!rawWords) {
+    alert("Введите хотя бы одно слово");
+    return;
+  }
+  words = rawWords.split("\n").map(s => s.trim()).filter(Boolean);
+  transcriptions = words.map(() => "");
+  translations = words.map(() => "");
+  examples = words.map(() => "");
+  hideAllPages();
+  document.getElementById("page1_5").classList.remove("hidden");
+}
+function skipTranscription() {
+  transcriptions = words.map(() => "");
+  goToTranslations();
+}
+function goToTranslations() {
+  const rawTrans = document.getElementById("englishTranscription").value.trim();
+  if (rawTrans) {
+    const arr = rawTrans.split("\n").map(s => s.trim());
+    if (arr.length !== words.length) { alert("Количество транскрипций должно совпадать с количеством слов"); return; }
+    transcriptions = arr;
+  } else transcriptions = words.map(() => "");
+  hideAllPages();
+  document.getElementById("page2").classList.remove("hidden");
+}
+function startSelfLearning() {
+  const rawTransl = document.getElementById("translatedWords").value.trim();
+  if (!rawTransl) { alert("Введите переводы"); return; }
+  const arr = rawTransl.split("\n").map(s => s.trim());
+  if (arr.length !== words.length) { alert("Количество переводов должно совпадать с количеством слов"); return; }
+  translations = arr;
+  examples = words.map(() => "");
+  initPhaseQueues();
+  currentPhase = 3;
+  hideAllPages();
+  document.getElementById("page3").classList.remove("hidden");
+  showNextCard();
+}
+
+/* === Инициализация очередей для фазы (3-5) === */
+function initPhaseQueues() {
+  mainOrder = words.map((_, i) => i);
+  mainPos = 0;
+  repeatQueue = [];
+  inRepeatMode = false;
+  currentIndex = null;
   updateProgress();
 }
 
-
-/* =======================
-   Прогресс
-   ======================= */
-
-function updateProgress() {
-
-  const total = words.length;
-
-  let done;
-
-  if (!repeatingWrong) {
-    done = Math.min(queuePosition, total);
-  } else {
-    done = total;
+/* === Получение следующего индекса для фаз 3-5 === */
+function getNextIndexForPhase() {
+  // Если ещё есть элементы в основном проходе — выдаём их
+  if (mainPos < mainOrder.length) {
+    currentIndex = mainOrder[mainPos++];
+    return currentIndex;
   }
 
-  const percent = Math.min(100, Math.round((done / total) * 100));
+  // основной проход окончен — если ещё не вошли в режим повторов — готовим очередь повторов
+  if (!inRepeatMode) {
+    inRepeatMode = true;
+    // Уникализируем (на случай дубликатов), затем тасуем
+    repeatQueue = shuffleArray(Array.from(new Set(repeatQueue)));
+  }
 
+  // Если очередь повторов пустая — этап закончен
+  if (repeatQueue.length === 0) {
+    return null;
+  }
+
+  // берем из начала очереди повторов (FIFO)
+  currentIndex = repeatQueue.shift();
+  return currentIndex;
+}
+
+/* === Обновление прогресса === */
+function updateProgress() {
+  const total = Math.max(words.length, 1);
+  // количество пройденных в основном проходе:
+  const mainDone = Math.min(mainPos, total);
+  let done = mainDone;
+  if (inRepeatMode) {
+    // когда на повторах — считаем, что завершено total - remainingRepeat
+    done = total - repeatQueue.length;
+  }
+  const percent = Math.round((done / total) * 100);
   const bar = document.getElementById("progressBar");
   const text = document.getElementById("progressText");
-
-  if (bar && text) {
-
-    bar.style.width = percent + "%";
-    bar.textContent = percent + "%";
-
-    text.textContent = `Прогресс: ${done}/${total}`;
-
+  if (bar) {
+    bar.style.width = Math.min(100, percent) + "%";
+    bar.textContent = Math.min(100, percent) + "%";
   }
-
+  if (text) {
+    text.textContent = `Прогресс: ${Math.min(done, total)}/${total}`;
+  }
 }
 
-
-/* =======================
-   Фаза 2
-   ======================= */
-
-function showPhase2() {
-
+/* === Переход на следующую фазу (универсально) === */
+function goToNextPage() {
+  // фазы: 3 -> 4 -> 5 -> 6 -> finish
   hideAllPages();
-  document.getElementById("page4").classList.remove("hidden");
+  if (currentPhase === 3) {
+    currentPhase = 4;
+    // подготовка очередей для фазы 4
+    initPhaseQueues();
+    document.getElementById("page4").classList.remove("hidden");
+    showPhase2();
+    return;
+  }
+  if (currentPhase === 4) {
+    currentPhase = 5;
+    initPhaseQueues();
+    document.getElementById("page5").classList.remove("hidden");
+    showPhase3();
+    return;
+  }
+  if (currentPhase === 5) {
+    currentPhase = 6;
+    // подготовка очередей для диктанта
+    initDictationQueues();
+    document.getElementById("page6").classList.remove("hidden");
+    showNextDictationWord();
+    return;
+  }
+  finishLesson();
+}
 
+/* === Повторить этап (кнопка в интерфейсе) === */
+function repeatPhase() {
+  // если есть накопленные ошибки — сделать из них основную очередь и пойти заново
+  if (repeatQueue.length > 0) {
+    mainOrder = [...repeatQueue];
+    mainPos = 0;
+    repeatQueue = [];
+    inRepeatMode = false;
+  } else {
+    // если ошибок нет — просто перезапустить основной порядок
+    mainOrder = words.map((_, i) => i);
+    mainPos = 0;
+    repeatQueue = [];
+    inRepeatMode = false;
+  }
+  hideAllPages();
+  if (currentPhase === 3) {
+    document.getElementById("page3").classList.remove("hidden");
+    showNextCard();
+  } else if (currentPhase === 4) {
+    document.getElementById("page4").classList.remove("hidden");
+    showPhase2();
+  } else if (currentPhase === 5) {
+    document.getElementById("page5").classList.remove("hidden");
+    showPhase3();
+  }
+}
+
+/* === ФАЗА 3: Ознакомление (карточки) ===
+   HTML: page3 contains:
+     <span id="cardWord"></span>
+     <button id="addToDictionaryBtn" class="dictionary-btn">☆</button>
+   Мы динамически добавим две кнопки: ✅ и ❌ (одноразово)
+*/
+function ensureCardButtons() {
+  const cardEl = document.getElementById("card");
+  if (!cardEl) return;
+  if (!document.getElementById("card-mark-known")) {
+    const knownBtn = document.createElement("button");
+    knownBtn.id = "card-mark-known";
+    knownBtn.textContent = "✅";
+    knownBtn.style.marginLeft = "8px";
+    knownBtn.onclick = () => {
+      // помечено как пройденное — ничего в repeatQueue не добавляем
+      // просто показываем следующее слово
+      showNextCard();
+    };
+    cardEl.appendChild(knownBtn);
+  }
+  if (!document.getElementById("card-mark-wrong")) {
+    const wrongBtn = document.createElement("button");
+    wrongBtn.id = "card-mark-wrong";
+    wrongBtn.textContent = "❌";
+    wrongBtn.style.marginLeft = "6px";
+    wrongBtn.onclick = () => {
+      // добавляем текущий индекс в очередь повторов (он будет повторяться позже)
+      if (currentIndex !== null) {
+        repeatQueue.push(currentIndex);
+      }
+      showNextCard();
+    };
+    cardEl.appendChild(wrongBtn);
+  }
+}
+
+function showNextCard() {
+  // Ensure card buttons exist
+  ensureCardButtons();
+
+  const idx = getNextIndexForPhase();
+  if (idx === null) {
+    // этап завершён
+    goToNextPage();
+    return;
+  }
+  currentIndex = idx;
+
+  // Обновляем UI
+  const cardWord = document.getElementById("cardWord");
+  if (cardWord) {
+    cardWord.textContent = `${words[currentIndex] || ""} [${transcriptions[currentIndex] || ""}] — ${translations[currentIndex] || ""}`;
+  }
+  const cardExample = document.getElementById("cardExample");
+  if (cardExample) {
+    cardExample.textContent = examples[currentIndex] || "";
+  }
+
+  // обновить кнопку добавления в словарь (если присутствует)
+  const addBtn = document.getElementById("addToDictionaryBtn");
+  if (addBtn) {
+    addBtn.textContent = isInDictionary(words[currentIndex]) ? "★" : "☆";
+    addBtn.onclick = () => toggleDictionary(words[currentIndex], addBtn);
+  }
+
+  updateProgress();
+}
+
+/* === ФАЗА 4: Перевод -> Оригинал === */
+function showPhase2() {
+  // если mainOrder ещё не заполнен — инициализируем
+  if (mainOrder.length === 0) initPhaseQueues();
+
+  const idx = getNextIndexForPhase();
+  if (idx === null) {
+    goToNextPage();
+    return;
+  }
+  currentIndex = idx;
+
+  document.getElementById("phase2-translation").textContent = translations[currentIndex] || "";
+  document.getElementById("phase2-example").textContent = examples[currentIndex] || "";
   document.getElementById("answerSection").classList.add("hidden");
 
-  const i = getCurrentIndex();
+  // обновляем кнопку словаря
+  const addBtn2 = document.getElementById("addToDictionaryBtn2");
+  if (addBtn2) {
+    addBtn2.textContent = isInDictionary(words[currentIndex]) ? "★" : "☆";
+    addBtn2.onclick = () => toggleDictionary(words[currentIndex], addBtn2);
+  }
+  updateProgress();
+}
 
-  document.getElementById("phase2-translation").textContent = translations[i];
-  document.getElementById("phase2-example").textContent = examples[i] || "";
-
+function showAnswer() {
+  document.getElementById("phase2-answer").textContent = `${words[currentIndex] || ""} [${transcriptions[currentIndex] || ""}]`;
+  document.getElementById("answerSection").classList.remove("hidden");
+  // speak button
+  let btn = document.getElementById("speakPhase4Btn");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "speakPhase4Btn";
+    btn.textContent = "🔊";
+    document.getElementById("answerSection").appendChild(btn);
+  }
+  btn.onclick = () => speakWord(words[currentIndex]);
 }
 
 function markAnswer(correct) {
-
-  const i = getCurrentIndex();
-
-  if (!correct && !repeatingWrong) {
-    wrongQueue.push(i);
+  // Если ответ неверный — добавляем индекс в repeatQueue (в конец)
+  if (!correct && currentIndex !== null) {
+    repeatQueue.push(currentIndex);
+  } else if (correct && currentIndex !== null) {
+    // если правильно — удаляем все вхождения этого индекса из repeatQueue (защита)
+    repeatQueue = repeatQueue.filter(i => i !== currentIndex);
   }
 
-  goNextInQueue();
-
-  if (queuePosition < mainQueue.length || repeatingWrong) {
-    showPhase2();
+  const next = getNextIndexForPhase();
+  if (next === null) {
+    goToNextPage();
+    return;
   }
+  currentIndex = next;
 
+  // Обновляем UI для следующего
+  document.getElementById("phase2-translation").textContent = translations[currentIndex] || "";
+  document.getElementById("phase2-example").textContent = examples[currentIndex] || "";
+  document.getElementById("answerSection").classList.add("hidden");
+  updateProgress();
+
+  // Обновляем словарь-кнопку
+  const addBtn2 = document.getElementById("addToDictionaryBtn2");
+  if (addBtn2) {
+    addBtn2.textContent = isInDictionary(words[currentIndex]) ? "★" : "☆";
+    addBtn2.onclick = () => toggleDictionary(words[currentIndex], addBtn2);
+  }
 }
 
-
-/* =======================
-   Фаза 3
-   ======================= */
-
+/* === ФАЗА 5: Оригинал -> Перевод === */
 function showPhase3() {
+  if (mainOrder.length === 0) initPhaseQueues();
 
-  hideAllPages();
-  document.getElementById("page5").classList.remove("hidden");
+  const idx = getNextIndexForPhase();
+  if (idx === null) {
+    goToNextPage();
+    return;
+  }
+  currentIndex = idx;
 
+  document.getElementById("phase3-original").textContent = words[currentIndex] || "";
+  document.getElementById("phase3-example").textContent = examples[currentIndex] || "";
   document.getElementById("answerSection3").classList.add("hidden");
 
-  const i = getCurrentIndex();
+  // словарь-кнопка
+  const addBtn3 = document.getElementById("addToDictionaryBtn3");
+  if (addBtn3) {
+    addBtn3.textContent = isInDictionary(words[currentIndex]) ? "★" : "☆";
+    addBtn3.onclick = () => toggleDictionary(words[currentIndex], addBtn3);
+  }
 
-  document.getElementById("phase3-original").textContent = words[i];
-  document.getElementById("phase3-example").textContent = examples[i] || "";
+  updateProgress();
+}
 
+function showAnswer3() {
+  document.getElementById("phase3-answer").textContent = translations[currentIndex] || "";
+  document.getElementById("answerSection3").classList.remove("hidden");
+
+  let btn = document.getElementById("speakPhase5Btn");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "speakPhase5Btn";
+    btn.textContent = "🔊";
+    document.getElementById("answerSection3").appendChild(btn);
+  }
+  btn.onclick = () => speakWord(words[currentIndex]);
 }
 
 function markAnswer3(correct) {
-
-  const i = getCurrentIndex();
-
-  if (!correct && !repeatingWrong) {
-    wrongQueue.push(i);
+  if (!correct && currentIndex !== null) {
+    repeatQueue.push(currentIndex);
+  } else if (correct && currentIndex !== null) {
+    repeatQueue = repeatQueue.filter(i => i !== currentIndex);
   }
 
-  goNextInQueue();
-
-  if (queuePosition < mainQueue.length || repeatingWrong) {
-    showPhase3();
+  const next = getNextIndexForPhase();
+  if (next === null) {
+    goToNextPage();
+    return;
   }
+  currentIndex = next;
+  document.getElementById("phase3-original").textContent = words[currentIndex] || "";
+  document.getElementById("phase3-example").textContent = examples[currentIndex] || "";
+  document.getElementById("answerSection3").classList.add("hidden");
+  updateProgress();
 
+  const addBtn3 = document.getElementById("addToDictionaryBtn3");
+  if (addBtn3) {
+    addBtn3.textContent = isInDictionary(words[currentIndex]) ? "★" : "☆";
+    addBtn3.onclick = () => toggleDictionary(words[currentIndex], addBtn3);
+  }
 }
 
+/* === ДИКТАНТ (ФАЗА 6) === */
+function initDictationQueues() {
+  dictMainOrder = words.map((_, i) => i);
+  dictMainPos = 0;
+  dictRepeatQueue = [];
+  dictInRepeat = false;
+  dictWaitingAfterError = false;
+}
 
-/* =======================
-   Диктант
-   ======================= */
+function getNextIndexForDictation() {
+  if (dictMainPos < dictMainOrder.length) {
+    return dictMainOrder[dictMainPos++];
+  }
 
-let dictationQueue = [];
-let dictationRepeatingWrong = false;
-let dictationPos = 0;
+  if (!dictInRepeat) {
+    dictInRepeat = true;
+    dictRepeatQueue = shuffleArray(Array.from(new Set(dictRepeatQueue)));
+  }
+
+  if (dictRepeatQueue.length === 0) {
+    return null;
+  }
+
+  return dictRepeatQueue.shift();
+}
 
 function startDictationPhase() {
-
-  dictationQueue = words.map((_, i) => i);
-
-  wrongQueue = [];
-
-  dictationPos = 0;
-
-  dictationRepeatingWrong = false;
-
+  initDictationQueues();
+  hideAllPages();
+  document.getElementById("page6").classList.remove("hidden");
   showNextDictationWord();
 }
 
 function showNextDictationWord() {
-
-  if (!dictationRepeatingWrong && dictationPos >= dictationQueue.length) {
-
-    if (wrongQueue.length > 0) {
-
-      dictationRepeatingWrong = true;
-
-      dictationQueue = [...wrongQueue];
-
-      wrongQueue = [];
-
-      dictationPos = 0;
-
-    } else {
-
-      finishLesson();
-      return;
-
-    }
-
-  }
-
-  if (dictationRepeatingWrong && dictationPos >= dictationQueue.length) {
-
+  const idx = getNextIndexForDictation();
+  if (idx === null) {
     finishLesson();
     return;
-
   }
+  currentIndex = idx;
 
-  hideAllPages();
-  document.getElementById("page6").classList.remove("hidden");
-
-  const index = dictationQueue[dictationPos];
-
-  document.getElementById("dictation-translation").textContent = translations[index] || "";
-  document.getElementById("dictation-example").textContent = examples[index] || "";
-
-  const input = document.getElementById("dictation-input");
-
-  input.value = "";
-  input.focus();
-
+  document.getElementById("dictation-translation").textContent = translations[currentIndex] || "";
+  document.getElementById("dictation-example").textContent = examples[currentIndex] || "";
+  document.getElementById("dictation-input").value = "";
   document.getElementById("dictation-feedback").textContent = "";
+  dictWaitingAfterError = false;
 
+  // speak button
+  let btn = document.getElementById("speakDictationBtn");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "speakDictationBtn";
+    btn.textContent = "🔊";
+    document.getElementById("page6").appendChild(btn);
+  }
+  btn.onclick = () => speakWord(words[currentIndex]);
 }
 
 function checkDictation() {
-
-  const index = dictationQueue[dictationPos];
-
+  if (dictWaitingAfterError) return;
   const inputEl = document.getElementById("dictation-input");
+  const userAnswer = (inputEl.value || "").trim();
+  const correctWord = words[currentIndex] || "";
 
-  const userAnswer = inputEl.value.trim();
-
-  const correctWord = words[index];
-
-  if (!userAnswer) return;
-
-  if (userAnswer.toLowerCase() === correctWord.toLowerCase()) {
-
-    dictationPos++;
-    showNextDictationWord();
-
-  } else {
-
-    inputEl.value = correctWord;
-
-    wrongQueue.push(index);
-
+  if (!userAnswer) {
+    document.getElementById("dictation-feedback").textContent = "Введите слово.";
+    return;
   }
 
+  if (userAnswer.toLowerCase() === correctWord.toLowerCase()) {
+    document.getElementById("dictation-feedback").textContent = "✅ Верно!";
+    // если было в repeat-очереди — удалим его
+    dictRepeatQueue = dictRepeatQueue.filter(i => i !== currentIndex);
+    setTimeout(showNextDictationWord, 300);
+  } else {
+    document.getElementById("dictation-feedback").textContent = "❌ Неверно. Правильный ответ показан. Слово будет повторено позже.";
+    inputEl.value = correctWord;
+    // добавляем в очередь повторов диктанта
+    dictRepeatQueue.push(currentIndex);
+    dictWaitingAfterError = true;
+  }
 }
 
 function nextDictationAfterError() {
-
-  dictationPos++;
-
+  if (!dictWaitingAfterError) return;
+  // просто продолжаем: showNextDictationWord использует dictMainPos/dictRepeatQueue
   showNextDictationWord();
-
 }
+
+/* === Завершение урока === */
+function finishLesson() {
+  hideAllPages();
+  document.getElementById("finishPage").classList.remove("hidden");
+  // можно пометить урок как завершённый
+  if (currentLesson) {
+    saveFinishedLesson(currentLesson.level, currentLesson.lessonKey);
+  }
+}
+
+/* === Вспомогательные переходы из UI === */
+function backToMenu() {
+  hideAllPages();
+  // просто вернёмся к пустому меню — оставим страницу 0 (ввод) видимой или скрытой по желанию
+  document.getElementById("page0").classList.remove("hidden");
+  document.getElementById("menuDropdown").classList.remove("show");
+}
+
+/* === Инициализация пустых глобальных очередей при старте === */
+initPhaseQueues = function() {
+  // function declaration-style assign — т.к. ранее в коде могли быть ссылки
+  mainOrder = words.map((_, i) => i);
+  mainPos = 0;
+  repeatQueue = [];
+  inRepeatMode = false;
+  currentIndex = null;
+  updateProgress();
+};
+
+// Привяжем кнопки, которые уже находятся в HTML, к функциям при загрузке
+window.addEventListener("DOMContentLoaded", () => {
+  // page3: "Далее" — пусть просто вызывает showNextCard (удобно для перехода без пометки)
+  const nextBtn = document.querySelector("#page3 button[onclick='showNextCard()']");
+  if (nextBtn) {
+    nextBtn.onclick = showNextCard;
+  }
+
+  // Повторить этап в page3 уже вызывает repeatPhase через onclick в HTML — оставляем
+  // Похожие кнопки уже связаны через атрибут onclick в HTML: showAnswer(), markAnswer(), showAnswer3(), markAnswer3(), checkDictation(), nextDictationAfterError()
+});
+
+/* === Конец скрипта === */
+</script>
 </script>
 
 </body>
