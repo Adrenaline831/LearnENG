@@ -952,7 +952,358 @@ function addSettingsMenu() {
     settingsWindow.style.display = isShown ? "none" : "block";
   });
 }
+// === Unified, fixed phase & repeat logic ===
 
+// очередь основного прохода и очередь повторов
+let mainOrder = [];       // порядок индексов для первоначального показа
+let mainPos = 0;          // указатель в mainOrder
+let repeatQueue = [];     // очередь индексов для повторов (повторяются пока не верно)
+let inRepeatMode = false; // флаг: мы сейчас показываем повторяющиеся слова
+let lastFromRepeat = false; // вспомогательный флаг — текущий показ из repeatQueue?
+let dictationRepeatQueue = []; // отдельная очередь для диктанта (тоже используется как repeatQueue)
+
+// утилита: тасование массива (Fisher–Yates)
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// инициализация очередей для текущего набора words
+function initPhaseQueues() {
+  mainOrder = words.map((_, i) => i);
+  mainPos = 0;
+  repeatQueue = [];
+  inRepeatMode = false;
+  lastFromRepeat = false;
+  // для диктанта отдельно: dictationRepeatQueue будет копироваться при входе в диктант
+  dictationRepeatQueue = [];
+  updateProgress();
+}
+
+// получить следующий индекс для текущей фазы (основной проход -> затем повторы)
+function getNextIndexForPhase() {
+  // Если не исчерпан основной проход — берем оттуда
+  if (mainPos < mainOrder.length) {
+    lastFromRepeat = false;
+    return mainOrder[mainPos++];
+  }
+
+  // основной проход завершён — проверяем очередь повторов
+  if (!inRepeatMode) {
+    // входим в режим повторов — тасуем очередь один раз перед стартом
+    inRepeatMode = true;
+    repeatQueue = shuffleArray(Array.from(new Set(repeatQueue))); // уникализируем+тасуем
+  }
+
+  if (repeatQueue.length === 0) {
+    // ничего для повтора — возврата нет
+    return null;
+  }
+
+  lastFromRepeat = true;
+  // берём следующий элемент из очереди повторов (FIFO)
+  return repeatQueue.shift();
+}
+
+// ВЕРСИЯ ДЛЯ ДИКТАНТА (аналогично): инициализируем dictationQueue и dictationRepeatQueue
+function initDictationQueues() {
+  // основная очередь диктанта — все индексы
+  mainOrder = words.map((_, i) => i);
+  mainPos = 0;
+  dictationRepeatQueue = [];
+  inRepeatMode = false;
+  lastFromRepeat = false;
+  updateProgress();
+}
+
+function getNextIndexForDictation() {
+  if (mainPos < mainOrder.length) {
+    lastFromRepeat = false;
+    return mainOrder[mainPos++];
+  }
+
+  if (!inRepeatMode) {
+    inRepeatMode = true;
+    dictationRepeatQueue = shuffleArray(Array.from(new Set(dictationRepeatQueue)));
+  }
+
+  if (dictationRepeatQueue.length === 0) return null;
+
+  lastFromRepeat = true;
+  return dictationRepeatQueue.shift();
+}
+
+// === Фаза 3: карточки (ознакомление) ===
+function showNextCard() {
+  // если это первый показ в фазе — инициализируем очереди
+  if (currentIndex === 0 && !inRepeatMode && mainPos === 0 && repeatQueue.length === 0) {
+    initPhaseQueues();
+  }
+
+  const idx = getNextIndexForPhase();
+  if (idx === null) { // очередь пустая — идём на следующий этап
+    goToNextPage();
+    return;
+  }
+
+  currentIndex = idx;
+  // показываем карточку
+  document.getElementById("page3").classList.remove("hidden");
+  document.getElementById("card").innerHTML =
+    `<strong>${words[currentIndex]}</strong> [${transcriptions[currentIndex] || ""}] — ${translations[currentIndex] || ""}
+     <button id="speakBtn">🔊</button>
+     <button id="addToDictionaryBtn" class="dictionary-btn">${isInDictionary(words[currentIndex]) ? "★" : "☆"}</button>
+     <button id="markKnownBtn">✅</button>
+     <button id="markWrongBtn">❌</button>`;
+  document.getElementById("cardExample").textContent = examples[currentIndex] || "";
+
+  document.getElementById("speakBtn").onclick = () => speakWord(words[currentIndex]);
+  document.getElementById("addToDictionaryBtn").onclick = () => toggleDictionary(words[currentIndex], document.getElementById("addToDictionaryBtn"));
+
+  // маркировка: пользователь пометил слово как прошедшее (галочка)
+  document.getElementById("markKnownBtn").onclick = () => {
+    // если это был элемент из очереди повторов — просто не возвращаем его обратно (т.е. удалён)
+    // если это был элемент из основного прохода — ничего в repeatQueue не добавляем
+    // просто просмотреть следующее
+    showNextCard();
+    updateProgress();
+  };
+
+  // маркировка: пользователь пометил слово как НЕ прошедшее (крестик) — добавляем в очередь повторов
+  document.getElementById("markWrongBtn").onclick = () => {
+    // если помечают во время основного прохода — добавляем в repeatQueue
+    // если помечают уже из repeat mode — добавим снова в конец, чтобы оно повторилось позже
+    if (lastFromRepeat) {
+      // добавляем в конец repeatQueue (оно уже было извлечено)
+      repeatQueue.push(currentIndex);
+    } else {
+      // добавляем индекс — он будет учтён при входе в repeat mode
+      repeatQueue.push(currentIndex);
+    }
+    showNextCard();
+    updateProgress();
+  };
+
+  updateProgress();
+}
+
+// === Фаза 4: перевод → оригинал ===
+function showPhase2() {
+  // если первый показ в фазе — инициализируем очереди
+  if (mainPos === 0 && !inRepeatMode && repeatQueue.length === 0) initPhaseQueues();
+
+  const idx = getNextIndexForPhase();
+  if (idx === null) { goToNextPage(); return; }
+
+  currentIndex = idx;
+  document.getElementById("page4").classList.remove("hidden");
+  document.getElementById("answerSection").classList.add("hidden");
+  document.getElementById("phase2-translation").innerHTML = translations[currentIndex] || "";
+  document.getElementById("phase2-example").textContent = examples[currentIndex] || "";
+  updateProgress();
+}
+
+function showAnswer() {
+  document.getElementById("phase2-answer").textContent = `${words[currentIndex]} [${transcriptions[currentIndex] || ""}]`;
+  document.getElementById("answerSection").classList.remove("hidden");
+  let btn = document.getElementById("speakPhase4Btn");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "speakPhase4Btn";
+    btn.textContent = "🔊";
+    document.getElementById("answerSection").appendChild(btn);
+  }
+  btn.onclick = () => speakWord(words[currentIndex]);
+}
+
+function markAnswer(correct) {
+  if (!correct) {
+    // Если пользователь сделал ошибку — добавляем индекс в repeatQueue (он будет повторяться)
+    if (lastFromRepeat) {
+      // если это уже элемент из repeatQueue, отправляем его в конец очереди повторов
+      repeatQueue.push(currentIndex);
+    } else {
+      repeatQueue.push(currentIndex);
+    }
+  } else {
+    // если правильно и слово находится в repeatQueue (редкий случай), удалим его из повторов
+    repeatQueue = repeatQueue.filter(i => i !== currentIndex);
+  }
+
+  // Показываем следующее
+  const nextIdx = getNextIndexForPhase();
+  if (nextIdx === null) { goToNextPage(); return; }
+  currentIndex = nextIdx;
+  // обновляем показ
+  document.getElementById("phase2-translation").innerHTML = translations[currentIndex] || "";
+  document.getElementById("phase2-example").textContent = examples[currentIndex] || "";
+  document.getElementById("answerSection").classList.add("hidden");
+  updateProgress();
+}
+
+// === Фаза 5: оригинал → перевод ===
+function showPhase3() {
+  // если первый показ в фазе — инициализируем очереди
+  if (mainPos === 0 && !inRepeatMode && repeatQueue.length === 0) initPhaseQueues();
+
+  const idx = getNextIndexForPhase();
+  if (idx === null) { goToNextPage(); return; }
+
+  currentIndex = idx;
+  document.getElementById("page5").classList.remove("hidden");
+  document.getElementById("answerSection3").classList.add("hidden");
+  document.getElementById("phase3-original").textContent = words[currentIndex];
+  document.getElementById("phase3-example").textContent = examples[currentIndex] || "";
+  updateProgress();
+}
+
+function showAnswer3() {
+  document.getElementById("phase3-answer").textContent = translations[currentIndex] || "";
+  document.getElementById("answerSection3").classList.remove("hidden");
+  let btn = document.getElementById("speakPhase5Btn");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "speakPhase5Btn";
+    btn.textContent = "🔊";
+    document.getElementById("answerSection3").appendChild(btn);
+  }
+  btn.onclick = () => speakWord(words[currentIndex]);
+}
+
+function markAnswer3(correct) {
+  if (!correct) {
+    if (lastFromRepeat) {
+      repeatQueue.push(currentIndex);
+    } else {
+      repeatQueue.push(currentIndex);
+    }
+  } else {
+    repeatQueue = repeatQueue.filter(i => i !== currentIndex);
+  }
+
+  const nextIdx = getNextIndexForPhase();
+  if (nextIdx === null) { goToNextPage(); return; }
+  currentIndex = nextIdx;
+  document.getElementById("answerSection3").classList.add("hidden");
+  document.getElementById("phase3-original").textContent = words[currentIndex];
+  document.getElementById("phase3-example").textContent = examples[currentIndex] || "";
+  updateProgress();
+}
+
+// === Фаза 6: диктант (через аналогичный подход) ===
+function startDictationPhase() {
+  // инициализируем отдельные очереди для диктанта
+  initDictationQueues();
+  // основная последовательность — все слова
+  // dictationRepeatQueue будет наполняться только ошибками
+  showNextDictationWord();
+}
+
+function showNextDictationWord() {
+  const idx = getNextIndexForDictation();
+  if (idx === null) {
+    finishLesson();
+    return;
+  }
+  currentIndex = idx;
+
+  hideAllPages();
+  const page = document.getElementById("page6");
+  page.classList.remove("hidden");
+
+  document.getElementById("dictation-translation").textContent = translations[currentIndex] || "";
+  document.getElementById("dictation-example").textContent = examples[currentIndex] || "";
+
+  const inputEl = document.getElementById("dictation-input");
+  inputEl.value = "";
+  inputEl.focus();
+  document.getElementById("dictation-feedback").textContent = "";
+  dictationWaiting = false;
+
+  let btn = document.getElementById("speakDictationBtn");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "speakDictationBtn";
+    btn.textContent = "🔊";
+    page.appendChild(btn);
+  }
+  btn.onclick = () => speakWord(words[currentIndex]);
+}
+
+function checkDictation() {
+  if (dictationWaiting) return; // ждем нажатия "Следующее" после ошибки
+
+  const inputEl = document.getElementById("dictation-input");
+  const userAnswer = (inputEl.value || "").trim();
+  const correctWord = words[currentIndex] || "";
+
+  if (!userAnswer) {
+    document.getElementById("dictation-feedback").textContent = "Введите слово.";
+    return;
+  }
+
+  if (userAnswer.toLowerCase() === correctWord.toLowerCase()) {
+    document.getElementById("dictation-feedback").textContent = "✅ Верно!";
+    // если было в repeat-очереди — удаляем из неё
+    dictationRepeatQueue = dictationRepeatQueue.filter(i => i !== currentIndex);
+    // короткая пауза — дальше
+    setTimeout(showNextDictationWord, 350);
+  } else {
+    document.getElementById("dictation-feedback").textContent = `❌ Неверно. Правильный ответ показан. Слово будет повторено позже.`;
+    inputEl.value = correctWord;
+    // добавляем в очередь повторов диктанта
+    dictationRepeatQueue.push(currentIndex);
+    // отмечаем, что теперь ждём ручного "Следующее"
+    dictationWaiting = true;
+  }
+}
+
+function nextDictationAfterError() {
+  if (!dictationWaiting) return;
+  // войдя сюда, мы переместились к следующему элементу
+  // Перенастроим глобальные dictation repeat/ordering:
+  // Поместим dictationRepeatQueue в repeat-очередь для диктанта и продолжим
+  // Нужно, чтобы getNextIndexForDictation использовал dictationRepeatQueue (оно уже используется).
+  showNextDictationWord();
+}
+
+// === Progress & helper ===
+function updateProgress() {
+  const total = words.length || 1;
+  // Завершено — количество уже прошедших элементов основного прохода
+  const mainDone = Math.min(mainPos, total);
+  // Если на повторе — количество уже успешно закрытых = total - repeatQueue.length (для общих фаз)
+  const repeatRemaining = inRepeatMode ? repeatQueue.length : 0;
+  const done = Math.min(total, mainDone + (inRepeatMode ? (total - repeatRemaining - (mainDone > total ? mainDone - total : 0)) : 0));
+  const percent = Math.round((done / total) * 100);
+
+  const bar = document.getElementById("progressBar");
+  const text = document.getElementById("progressText");
+  if (bar && text) {
+    bar.style.width = Math.min(100, percent) + "%";
+    bar.textContent = Math.min(100, percent) + "%";
+    text.textContent = `Прогресс: ${Math.min(done, total)}/${total}`;
+  }
+}
+
+// Переопределяем переход на следующую страницу — чтобы корректно рестартовать очереди там, где нужно
+function goToNextPage() {
+  if (currentPhase === 3) startPhase(4);
+  else if (currentPhase === 4) startPhase(5);
+  else if (currentPhase === 5) startPhase(6);
+  else finishLesson();
+}
+
+// Повторить этап — сбрасываем очереди и показываем соответствующую фазу
+function repeatPhase() {
+  // Сбрасываем флаги очередей, чтобы пользователь заново прошёл этап
+  initPhaseQueues();
+  if (currentPhase > 3) startPhase(currentPhase - 1);
+  else startPhase(3);
+}
 
 </script>
 
