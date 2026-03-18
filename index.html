@@ -111,258 +111,200 @@
 
 <script>
 
-  /* ====================================================
-   ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-==================================================== */
-
+  // === Глобальные переменные === 
 let lessonsDB = {};
 let currentLesson = null;
 let currentLessonElement = null;
-
 let words = [];
 let transcriptions = [];
 let translations = [];
 let examples = [];
-
 let currentPhase = 0;
 let currentIndex = 0;
-
+let wrongQueue = [];
 let dictationQueue = [];
-let dictationPos = 0;
-let dictationRepeatingWrong = false;
-
+let dictationWaiting = false;
 let pullExamplesFromJSON = true;
 let lastSpokenWord = "";
 let slowMode = false;
 
-/* ====================================================
-   НОВАЯ СИСТЕМА ОЧЕРЕДЕЙ (ФИКС БАГА)
-==================================================== */
-
-let mainQueue = [];
-let repeatQueue = [];
-let queueIndex = 0;
-let isRepeatMode = false;
-
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
+// === 🔥 Перемешивание слов ===
+function shuffleAll() {
+  const indices = words.map((_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-}
-
-function initQueue() {
-  mainQueue = words.map((_, i) => i);
-  repeatQueue = [];
-  queueIndex = 0;
-  isRepeatMode = false;
-}
-
-function getNextIndex() {
-  if (!isRepeatMode) {
-    if (queueIndex < mainQueue.length) {
-      return mainQueue[queueIndex++];
-    }
-
-    if (repeatQueue.length === 0) return null;
-
-    isRepeatMode = true;
-    shuffle(repeatQueue);
+    [indices[i], indices[j]] = [indices[j], indices[i]];
   }
 
-  if (repeatQueue.length === 0) return null;
-
-  return repeatQueue.shift();
+  words = indices.map(i => words[i]);
+  transcriptions = indices.map(i => transcriptions[i]);
+  translations = indices.map(i => translations[i]);
+  examples = indices.map(i => examples[i]);
 }
 
-/* ====================================================
-   СЛОВАРЬ (localStorage)
-==================================================== */
-
-const LOCAL_STORAGE_KEY = "myDictionary";
-
-function getMyDictionary() {
-  return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || [];
-}
-
-function saveMyDictionary(dict) {
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dict));
-}
-
-function isInDictionary(word) {
-  return getMyDictionary().includes(word);
-}
-
-function toggleDictionary(word, btn) {
-  let dict = getMyDictionary();
-
-  if (dict.includes(word)) {
-    dict = dict.filter(w => w !== word);
-    btn.textContent = "☆";
-  } else {
-    dict.push(word);
-    btn.textContent = "★";
-  }
-
-  saveMyDictionary(dict);
-}
-
-/* ====================================================
-   ОЗВУЧКА
-==================================================== */
-
-function speakWord(word) {
-  if (!word) return;
-
-  const utter = new SpeechSynthesisUtterance(word);
-  utter.lang = "en-US";
-  utter.rate = slowMode ? 0.7 : 1;
-
-  speechSynthesis.cancel();
-  speechSynthesis.speak(utter);
-
-  slowMode = (lastSpokenWord === word) ? !slowMode : false;
-  lastSpokenWord = word;
-}
-
-/* ====================================================
-   ФАЗА 1 (карточки)
-==================================================== */
-
-function showNextCard() {
-
-  if (queueIndex === 0 && !isRepeatMode && repeatQueue.length === 0) {
-    initQueue();
-  }
-
-  const idx = getNextIndex();
-
-  if (idx === null) {
-    goToNextPage();
-    return;
-  }
-
-  currentIndex = idx;
-
-  document.getElementById("page3").classList.remove("hidden");
-
-  const word = words[idx];
-
-  document.getElementById("card").innerHTML =
-    `<strong>${word}</strong> [${transcriptions[idx]}] — ${translations[idx]}
-     <button id="speakBtn">🔊</button>
-     <button id="addBtn">${isInDictionary(word) ? "★" : "☆"}</button>
-     <button id="okBtn">✅</button>
-     <button id="badBtn">❌</button>`;
-
-  document.getElementById("cardExample").textContent = examples[idx] || "";
-
-  document.getElementById("speakBtn").onclick = () => speakWord(word);
-
-  document.getElementById("addBtn").onclick =
-    () => toggleDictionary(word, document.getElementById("addBtn"));
-
-  document.getElementById("okBtn").onclick = () => showNextCard();
-
-  document.getElementById("badBtn").onclick = () => {
-    repeatQueue.push(idx);
-    showNextCard();
-  };
-
-  updateProgress();
-}
-
-/* ====================================================
-   ФАЗА 2
-==================================================== */
-
-function markAnswer(correct) {
-
-  if (!correct) {
-    repeatQueue.push(currentIndex);
-  }
-
-  const next = getNextIndex();
-
-  if (next === null) {
-    goToNextPage();
-    return;
-  }
-
-  currentIndex = next;
-
-  document.getElementById("phase2-translation").textContent = translations[next];
-  document.getElementById("phase2-example").textContent = examples[next] || "";
-  document.getElementById("answerSection").classList.add("hidden");
-
-  updateProgress();
-}
-
-/* ====================================================
-   ФАЗА 3
-==================================================== */
-
-function markAnswer3(correct) {
-
-  if (!correct) {
-    repeatQueue.push(currentIndex);
-  }
-
-  const next = getNextIndex();
-
-  if (next === null) {
-    goToNextPage();
-    return;
-  }
-
-  currentIndex = next;
-
-  document.getElementById("phase3-original").textContent = words[next];
-  document.getElementById("phase3-example").textContent = examples[next] || "";
-  document.getElementById("answerSection3").classList.add("hidden");
-
-  updateProgress();
-}
-
-/* ====================================================
-   ДИКТАНТ
-==================================================== */
-
-let wrongQueue = [];
-
-function startDictationPhase() {
-  dictationQueue = words.map((_, i) => i);
+// === Фазы ===
+function startPhase(phase) {
+  hideAllPages();
+  currentPhase = phase;
+  currentIndex = 0;
   wrongQueue = [];
-  dictationPos = 0;
-  dictationRepeatingWrong = false;
-  showNextDictationWord();
+
+  shuffleAll(); // 🔥 фикс порядка
+
+  updateProgress();
+
+  if (phase === 3) showNextCard();
+  if (phase === 4) showPhase2();
+  if (phase === 5) showPhase3();
+  if (phase === 6) startDictationPhase();
 }
 
-function showNextDictationWord() {
+// === Прогресс ===
+function updateProgress() {
+  const total = words.length;
+  const done = currentIndex;
+  const percent = Math.min(100, Math.round((done / total) * 100));
 
-  if (!dictationRepeatingWrong && dictationPos >= dictationQueue.length) {
+  const bar = document.getElementById("progressBar");
+  const text = document.getElementById("progressText");
 
+  if (bar && text) {
+    bar.style.width = percent + "%";
+    bar.textContent = percent + "%";
+    text.textContent = `Прогресс: ${done}/${total}`;
+  }
+}
+
+// === Индекс ===
+function getCurrentIndex() {
+  return currentIndex;
+}
+
+// === Фаза 2 ===
+function markAnswer(correct) {
+  if (!correct) {
+    wrongQueue.push(currentIndex);
+  }
+
+  currentIndex++;
+
+  if (currentIndex >= words.length) {
     if (wrongQueue.length > 0) {
-      dictationRepeatingWrong = true;
-      dictationQueue = [...wrongQueue];
-      wrongQueue = [];
-      dictationPos = 0;
-      shuffle(dictationQueue);
+      currentIndex = wrongQueue.shift();
     } else {
-      finishLesson();
+      goToNextPage();
       return;
     }
   }
 
-  if (dictationRepeatingWrong && dictationPos >= dictationQueue.length) {
+  updateProgress();
+  showPhase2();
+}
+
+// === Фаза 3 ===
+function markAnswer3(correct) {
+  if (!correct) {
+    wrongQueue.push(currentIndex);
+  }
+
+  currentIndex++;
+
+  if (currentIndex >= words.length) {
+    if (wrongQueue.length > 0) {
+      currentIndex = wrongQueue.shift();
+    } else {
+      goToNextPage();
+      return;
+    }
+  }
+
+  updateProgress();
+  showPhase3();
+}
+
+// === Фаза карточек ===
+function showNextCard() {
+  if (currentIndex >= words.length) {
+    goToNextPage();
+    return;
+  }
+
+  document.getElementById("page3").classList.remove("hidden");
+
+  const word = words[currentIndex];
+
+  document.getElementById("card").innerHTML =
+    `<strong>${word}</strong> [${transcriptions[currentIndex]}] — ${translations[currentIndex]}
+     <button id="speakBtn">🔊</button>`;
+
+  document.getElementById("cardExample").textContent = examples[currentIndex] || "";
+
+  document.getElementById("speakBtn").onclick = () => speakWord(word);
+
+  currentIndex++;
+  updateProgress();
+}
+
+// === Фаза 2 UI ===
+function showPhase2() {
+  if (currentIndex >= words.length && wrongQueue.length === 0) {
+    goToNextPage();
+    return;
+  }
+
+  document.getElementById("page4").classList.remove("hidden");
+  document.getElementById("answerSection").classList.add("hidden");
+
+  const i = getCurrentIndex();
+
+  document.getElementById("phase2-translation").textContent = translations[i];
+  document.getElementById("phase2-example").textContent = examples[i] || "";
+}
+
+// === Фаза 3 UI ===
+function showPhase3() {
+  if (currentIndex >= words.length && wrongQueue.length === 0) {
+    goToNextPage();
+    return;
+  }
+
+  document.getElementById("page5").classList.remove("hidden");
+  document.getElementById("answerSection3").classList.add("hidden");
+
+  const i = getCurrentIndex();
+
+  document.getElementById("phase3-original").textContent = words[i];
+  document.getElementById("phase3-example").textContent = examples[i] || "";
+}
+
+// === Переход ===
+function goToNextPage() {
+  if (currentPhase === 3) startPhase(4);
+  else if (currentPhase === 4) startPhase(5);
+  else if (currentPhase === 5) startPhase(6);
+  else finishLesson();
+}
+
+// === Диктант ===
+function startDictationPhase() {
+  dictationQueue = words.map((_, i) => i);
+  dictationWaiting = false;
+  showNextDictationWord();
+}
+
+function showNextDictationWord() {
+  if (dictationQueue.length === 0) {
     finishLesson();
     return;
   }
 
-  const index = dictationQueue[dictationPos];
+  currentIndex = dictationQueue[0];
 
-  document.getElementById("dictation-translation").textContent = translations[index];
-  document.getElementById("dictation-example").textContent = examples[index] || "";
+  hideAllPages();
+  document.getElementById("page6").classList.remove("hidden");
+
+  document.getElementById("dictation-translation").textContent = translations[currentIndex];
+  document.getElementById("dictation-example").textContent = examples[currentIndex] || "";
 
   const input = document.getElementById("dictation-input");
   input.value = "";
@@ -372,37 +314,28 @@ function showNextDictationWord() {
 }
 
 function checkDictation() {
-  const index = dictationQueue[dictationPos];
-  const input = document.getElementById("dictation-input");
+  if (dictationWaiting) return;
 
-  if (input.value.trim().toLowerCase() === words[index].toLowerCase()) {
-    dictationPos++;
-    showNextDictationWord();
+  const input = document.getElementById("dictation-input").value.trim();
+  const correctWord = words[currentIndex];
+
+  if (!input) return;
+
+  if (input.toLowerCase() === correctWord.toLowerCase()) {
+    document.getElementById("dictation-feedback").textContent = "✅ Верно!";
+    dictationQueue.shift();
+    setTimeout(showNextDictationWord, 400);
   } else {
-    input.value = words[index];
-    wrongQueue.push(index);
+    document.getElementById("dictation-feedback").textContent = "❌ Неверно";
+    dictationQueue.push(dictationQueue.shift());
+    dictationWaiting = true;
   }
 }
 
 function nextDictationAfterError() {
-  dictationPos++;
+  if (!dictationWaiting) return;
+  dictationWaiting = false;
   showNextDictationWord();
-}
-
-/* ====================================================
-   ПРОГРЕСС
-==================================================== */
-
-function updateProgress() {
-  const total = words.length;
-  const done = Math.min(queueIndex, total);
-
-  const percent = Math.round((done / total) * 100);
-
-  document.getElementById("progressBar").style.width = percent + "%";
-  document.getElementById("progressBar").textContent = percent + "%";
-  document.getElementById("progressText").textContent =
-    `Прогресс: ${done}/${total}`;
 }
 </script>
 
