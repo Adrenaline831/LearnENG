@@ -182,10 +182,34 @@ function saveExamplesMode(value) {
 }
 
 function syncCurrentExamples() {
-  if (!currentLesson) return;
-  const lesson = lessonsDB[currentLesson.level] && lessonsDB[currentLesson.level][currentLesson.lessonKey];
-  if (!lesson) return;
-  examples = pullExamplesFromJSON ? (lesson.example || []) : words.map(() => "");
+  if (!words.length) return;
+
+  if (currentLesson) {
+    const lesson = lessonsDB[currentLesson.level] && lessonsDB[currentLesson.level][currentLesson.lessonKey];
+    if (!lesson) return;
+    examples = pullExamplesFromJSON ? (lesson.example || []) : words.map(() => "");
+    return;
+  }
+
+  if (!pullExamplesFromJSON) {
+    examples = words.map(() => "");
+    return;
+  }
+
+  // Для режимов вне конкретного урока (например, словарь):
+  // пытаемся восстановить примеры из lessonsDB по каждому слову.
+  examples = words.map(word => {
+    for (const levelKey in lessonsDB) {
+      for (const lessonKey in lessonsDB[levelKey]) {
+        const lesson = lessonsDB[levelKey][lessonKey];
+        const idx = lesson.english ? lesson.english.indexOf(word) : -1;
+        if (idx !== -1 && lesson.example && lesson.example[idx]) {
+          return lesson.example[idx];
+        }
+      }
+    }
+    return "";
+  });
 }
 
 pullExamplesFromJSON = getExamplesMode();
