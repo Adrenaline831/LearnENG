@@ -111,9 +111,10 @@
 
 <script>
 /* ====================================================
-   ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
-==================================================== */
+   Очистка и единая рабочая версия скрипта проекта
+   ==================================================== */
 
+/* === Глобальные переменные === */
 let lessonsDB = {};
 let currentLesson = null;
 let currentLessonElement = null;
@@ -124,98 +125,79 @@ let translations = [];
 let examples = [];
 
 let currentPhase = 0;
+
 let currentIndex = 0;
 
-let dictationQueue = [];
-let dictationPos = 0;
-let dictationRepeatingWrong = false;
-
-let pullExamplesFromJSON = true;
 let lastSpokenWord = "";
 let slowMode = false;
 
-/* ====================================================
-   НОВАЯ СИСТЕМА ОЧЕРЕДЕЙ (ФИКС БАГА)
-==================================================== */
+let pullExamplesFromJSON = true;
 
+/* === Очереди обучения === */
 let mainQueue = [];
-let repeatQueue = [];
-let queueIndex = 0;
-let isRepeatMode = false;
+let wrongQueue = [];
+let queuePosition = 0;
+let repeatingWrong = false;
 
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-}
 
-function initQueue() {
-  mainQueue = words.map((_, i) => i);
-  repeatQueue = [];
-  queueIndex = 0;
-  isRepeatMode = false;
-}
-
-function getNextIndex() {
-  if (!isRepeatMode) {
-    if (queueIndex < mainQueue.length) {
-      return mainQueue[queueIndex++];
-    }
-
-    if (repeatQueue.length === 0) return null;
-
-    isRepeatMode = true;
-    shuffle(repeatQueue);
-  }
-
-  if (repeatQueue.length === 0) return null;
-
-  return repeatQueue.shift();
-}
-
-/* ====================================================
-   СЛОВАРЬ (localStorage)
-==================================================== */
+/* === LocalStorage: словарь и завершённые уроки === */
 
 const LOCAL_STORAGE_KEY = "myDictionary";
+const FINISHED_LESSONS_KEY = "finishedLessons";
 
 function getMyDictionary() {
-  return JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY)) || [];
+  const dict = localStorage.getItem(LOCAL_STORAGE_KEY);
+  return dict ? JSON.parse(dict) : [];
 }
 
 function saveMyDictionary(dict) {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dict));
 }
 
+function getFinishedLessons() {
+  const finished = localStorage.getItem(FINISHED_LESSONS_KEY);
+  return finished ? JSON.parse(finished) : {};
+}
+
+function saveFinishedLesson(level, lessonKey) {
+  const finished = getFinishedLessons();
+  if (!finished[level]) finished[level] = [];
+  if (!finished[level].includes(lessonKey)) finished[level].push(lessonKey);
+  localStorage.setItem(FINISHED_LESSONS_KEY, JSON.stringify(finished));
+}
+
+
+/* === Проверка словаря === */
+
 function isInDictionary(word) {
   return getMyDictionary().includes(word);
 }
 
-function toggleDictionary(word, btn) {
+function toggleDictionary(word, button) {
   let dict = getMyDictionary();
 
   if (dict.includes(word)) {
     dict = dict.filter(w => w !== word);
-    btn.textContent = "☆";
+    if (button) button.textContent = "☆";
   } else {
     dict.push(word);
-    btn.textContent = "★";
+    if (button) button.textContent = "★";
   }
 
   saveMyDictionary(dict);
 }
 
-/* ====================================================
-   ОЗВУЧКА
-==================================================== */
+
+/* === Озвучка === */
 
 function speakWord(word) {
+
   if (!word) return;
 
   const utter = new SpeechSynthesisUtterance(word);
+
   utter.lang = "en-US";
-  utter.rate = slowMode ? 0.7 : 1;
+  utter.rate = slowMode ? 0.7 : 1.0;
 
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
@@ -224,116 +206,319 @@ function speakWord(word) {
   lastSpokenWord = word;
 }
 
-/* ====================================================
-   ФАЗА 1 (карточки)
-==================================================== */
 
-function showNextCard() {
+/* === Загружаем JSON с уроками === */
 
-  if (queueIndex === 0 && !isRepeatMode && repeatQueue.length === 0) {
-    initQueue();
-  }
+fetch("lessons.json")
 
-  const idx = getNextIndex();
+  .then(res => res.json())
 
-  if (idx === null) {
-    goToNextPage();
-    return;
-  }
+  .then(data => {
+    lessonsDB = data;
+    generateLevelsMenu();
+    addSettingsMenu();
+  })
 
-  currentIndex = idx;
+  .catch(err => console.error("Ошибка загрузки JSON:", err));
 
-  document.getElementById("page3").classList.remove("hidden");
 
-  const word = words[idx];
+/* === Меню === */
 
-  document.getElementById("card").innerHTML =
-    `<strong>${word}</strong> [${transcriptions[idx]}] — ${translations[idx]}
-     <button id="speakBtn">🔊</button>
-     <button id="addBtn">${isInDictionary(word) ? "★" : "☆"}</button>
-     <button id="okBtn">✅</button>
-     <button id="badBtn">❌</button>`;
+document.getElementById("menuBtn").addEventListener("click", () => {
+  document.getElementById("menuDropdown").classList.toggle("show");
+});
 
-  document.getElementById("cardExample").textContent = examples[idx] || "";
 
-  document.getElementById("speakBtn").onclick = () => speakWord(word);
+/* === Генерация уровней и уроков === */
 
-  document.getElementById("addBtn").onclick =
-    () => toggleDictionary(word, document.getElementById("addBtn"));
+function generateLevelsMenu() {
 
-  document.getElementById("okBtn").onclick = () => showNextCard();
+  const menu = document.getElementById("menuDropdown");
 
-  document.getElementById("badBtn").onclick = () => {
-    repeatQueue.push(idx);
-    showNextCard();
-  };
+  menu.innerHTML = "";
+
+  const finished = getFinishedLessons();
+
+  Object.keys(lessonsDB).forEach(level => {
+
+    const li = document.createElement("li");
+    li.classList.add("menu__nav-item");
+
+    const btn = document.createElement("button");
+    btn.textContent = level;
+    btn.classList.add("level-btn");
+
+    li.appendChild(btn);
+
+    const ul = document.createElement("ul");
+    ul.classList.add("submenu");
+    ul.style.display = "none";
+
+    Object.keys(lessonsDB[level]).forEach(lessonKey => {
+
+      const lessonLi = document.createElement("li");
+
+      lessonLi.textContent = lessonsDB[level][lessonKey].title;
+      lessonLi.style.cursor = "pointer";
+
+      if (finished[level] && finished[level].includes(lessonKey)) {
+        lessonLi.style.backgroundColor = "#6fcf97";
+        lessonLi.style.color = "#000";
+      }
+
+      lessonLi.addEventListener("click", () => {
+
+        startLesson(level, lessonKey);
+
+        if (currentLessonElement) {
+          currentLessonElement.style.backgroundColor = "";
+          currentLessonElement.style.color = "";
+        }
+
+        lessonLi.style.backgroundColor = "#ffd966";
+        lessonLi.style.color = "#000";
+
+        currentLessonElement = lessonLi;
+
+        setTimeout(() => {
+          document.getElementById("page3").scrollIntoView({ behavior: "smooth" });
+        }, 300);
+
+      });
+
+      ul.appendChild(lessonLi);
+
+    });
+
+    li.appendChild(ul);
+    menu.appendChild(li);
+
+    btn.addEventListener("click", () => {
+
+      const isShown = ul.style.display === "block";
+
+      document.querySelectorAll(".submenu").forEach(sub => sub.style.display = "none");
+
+      ul.style.display = isShown ? "none" : "block";
+
+    });
+
+  });
+
+  const dictBtn = document.createElement("li");
+
+  dictBtn.innerHTML = `<button id="myDictionaryBtn">★ Мой словарь</button>`;
+
+  menu.appendChild(dictBtn);
+
+  document.getElementById("myDictionaryBtn")
+    .addEventListener("click", startDictionaryLesson);
+}
+
+
+/* === Управление страницами === */
+
+function hideAllPages() {
+
+  [
+    "page0","page1_5","page2",
+    "page3","page4","page5","page6",
+    "finishPage"
+  ].forEach(id => {
+
+    const el = document.getElementById(id);
+    if (el) el.classList.add("hidden");
+
+  });
+
+}
+
+
+/* =======================
+   Универсальная система очередей
+   ======================= */
+
+function initQueue() {
+
+  mainQueue = words.map((_, i) => i);
+
+  wrongQueue = [];
+
+  queuePosition = 0;
+
+  repeatingWrong = false;
 
   updateProgress();
 }
 
-/* ====================================================
-   ФАЗА 2
-==================================================== */
+function getCurrentIndex() {
+
+  if (!repeatingWrong) {
+    return mainQueue[queuePosition];
+  } else {
+    return wrongQueue[queuePosition];
+  }
+
+}
+
+function goNextInQueue() {
+
+  queuePosition++;
+
+  if (!repeatingWrong) {
+
+    if (queuePosition >= mainQueue.length) {
+
+      if (wrongQueue.length > 0) {
+
+        repeatingWrong = true;
+        queuePosition = 0;
+
+      } else {
+
+        goToNextPage();
+        return;
+
+      }
+
+    }
+
+  } else {
+
+    if (queuePosition >= wrongQueue.length) {
+
+      goToNextPage();
+      return;
+
+    }
+
+  }
+
+  updateProgress();
+}
+
+
+/* =======================
+   Прогресс
+   ======================= */
+
+function updateProgress() {
+
+  const total = words.length;
+
+  let done;
+
+  if (!repeatingWrong) {
+    done = Math.min(queuePosition, total);
+  } else {
+    done = total;
+  }
+
+  const percent = Math.min(100, Math.round((done / total) * 100));
+
+  const bar = document.getElementById("progressBar");
+  const text = document.getElementById("progressText");
+
+  if (bar && text) {
+
+    bar.style.width = percent + "%";
+    bar.textContent = percent + "%";
+
+    text.textContent = `Прогресс: ${done}/${total}`;
+
+  }
+
+}
+
+
+/* =======================
+   Фаза 2
+   ======================= */
+
+function showPhase2() {
+
+  hideAllPages();
+  document.getElementById("page4").classList.remove("hidden");
+
+  document.getElementById("answerSection").classList.add("hidden");
+
+  const i = getCurrentIndex();
+
+  document.getElementById("phase2-translation").textContent = translations[i];
+  document.getElementById("phase2-example").textContent = examples[i] || "";
+
+}
 
 function markAnswer(correct) {
 
-  if (!correct) {
-    repeatQueue.push(currentIndex);
+  const i = getCurrentIndex();
+
+  if (!correct && !repeatingWrong) {
+    wrongQueue.push(i);
   }
 
-  const next = getNextIndex();
+  goNextInQueue();
 
-  if (next === null) {
-    goToNextPage();
-    return;
+  if (queuePosition < mainQueue.length || repeatingWrong) {
+    showPhase2();
   }
 
-  currentIndex = next;
-
-  document.getElementById("phase2-translation").textContent = translations[next];
-  document.getElementById("phase2-example").textContent = examples[next] || "";
-  document.getElementById("answerSection").classList.add("hidden");
-
-  updateProgress();
 }
 
-/* ====================================================
-   ФАЗА 3
-==================================================== */
+
+/* =======================
+   Фаза 3
+   ======================= */
+
+function showPhase3() {
+
+  hideAllPages();
+  document.getElementById("page5").classList.remove("hidden");
+
+  document.getElementById("answerSection3").classList.add("hidden");
+
+  const i = getCurrentIndex();
+
+  document.getElementById("phase3-original").textContent = words[i];
+  document.getElementById("phase3-example").textContent = examples[i] || "";
+
+}
 
 function markAnswer3(correct) {
 
-  if (!correct) {
-    repeatQueue.push(currentIndex);
+  const i = getCurrentIndex();
+
+  if (!correct && !repeatingWrong) {
+    wrongQueue.push(i);
   }
 
-  const next = getNextIndex();
+  goNextInQueue();
 
-  if (next === null) {
-    goToNextPage();
-    return;
+  if (queuePosition < mainQueue.length || repeatingWrong) {
+    showPhase3();
   }
 
-  currentIndex = next;
-
-  document.getElementById("phase3-original").textContent = words[next];
-  document.getElementById("phase3-example").textContent = examples[next] || "";
-  document.getElementById("answerSection3").classList.add("hidden");
-
-  updateProgress();
 }
 
-/* ====================================================
-   ДИКТАНТ
-==================================================== */
 
-let wrongQueue = [];
+/* =======================
+   Диктант
+   ======================= */
+
+let dictationQueue = [];
+let dictationRepeatingWrong = false;
+let dictationPos = 0;
 
 function startDictationPhase() {
+
   dictationQueue = words.map((_, i) => i);
+
   wrongQueue = [];
+
   dictationPos = 0;
+
   dictationRepeatingWrong = false;
+
   showNextDictationWord();
 }
 
@@ -342,66 +527,81 @@ function showNextDictationWord() {
   if (!dictationRepeatingWrong && dictationPos >= dictationQueue.length) {
 
     if (wrongQueue.length > 0) {
+
       dictationRepeatingWrong = true;
+
       dictationQueue = [...wrongQueue];
+
       wrongQueue = [];
+
       dictationPos = 0;
-      shuffle(dictationQueue);
+
     } else {
+
       finishLesson();
       return;
+
     }
+
   }
 
   if (dictationRepeatingWrong && dictationPos >= dictationQueue.length) {
+
     finishLesson();
     return;
+
   }
+
+  hideAllPages();
+  document.getElementById("page6").classList.remove("hidden");
 
   const index = dictationQueue[dictationPos];
 
-  document.getElementById("dictation-translation").textContent = translations[index];
+  document.getElementById("dictation-translation").textContent = translations[index] || "";
   document.getElementById("dictation-example").textContent = examples[index] || "";
 
   const input = document.getElementById("dictation-input");
+
   input.value = "";
   input.focus();
 
   document.getElementById("dictation-feedback").textContent = "";
+
 }
 
 function checkDictation() {
-  const index = dictationQueue[dictationPos];
-  const input = document.getElementById("dictation-input");
 
-  if (input.value.trim().toLowerCase() === words[index].toLowerCase()) {
+  const index = dictationQueue[dictationPos];
+
+  const inputEl = document.getElementById("dictation-input");
+
+  const userAnswer = inputEl.value.trim();
+
+  const correctWord = words[index];
+
+  if (!userAnswer) return;
+
+  if (userAnswer.toLowerCase() === correctWord.toLowerCase()) {
+
     dictationPos++;
     showNextDictationWord();
+
   } else {
-    input.value = words[index];
+
+    inputEl.value = correctWord;
+
     wrongQueue.push(index);
+
   }
+
 }
 
 function nextDictationAfterError() {
+
   dictationPos++;
+
   showNextDictationWord();
-}
 
-/* ====================================================
-   ПРОГРЕСС
-==================================================== */
-
-function updateProgress() {
-  const total = words.length;
-  const done = Math.min(queueIndex, total);
-
-  const percent = Math.round((done / total) * 100);
-
-  document.getElementById("progressBar").style.width = percent + "%";
-  document.getElementById("progressBar").textContent = percent + "%";
-  document.getElementById("progressText").textContent =
-    `Прогресс: ${done}/${total}`;
 }
 </script>
 
