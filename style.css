@@ -107,6 +107,78 @@ body.theme-darkred {
   --shadow-button: 0 4px 0 rgba(102, 33, 33, 0.95);
 }
 
+/* Тема 4: ночная синяя */
+body.theme-midnight {
+  --bg-color: #0e1222;
+  --bg-gradient: radial-gradient(circle at top, #1a2342 0%, #121a34 45%, #0b1021 100%);
+  --surface-color: #17203d;
+  --surface-muted: #202a4c;
+  --text-color: #e9eeff;
+  --accent-color: #4ea1ff;
+  --accent-strong: #3e86d4;
+  --accent-soft: #293960;
+  --menu-bg: #17203d;
+  --menu-hover: #23305a;
+  --submenu-bg: #17203d;
+  --submenu-hover: #23305a;
+  --button-bg: #4ea1ff;
+  --button-hover: #3e86d4;
+  --button-text: #ffffff;
+  --button-secondary-bg: #202a4c;
+  --button-secondary-hover: #2a3764;
+  --button-secondary-text: #e9eeff;
+  --input-bg: #202a4c;
+  --input-border: #405282;
+  --input-text: #e9eeff;
+  --placeholder-color: #a4b0d8;
+  --progress-bg: #2a375f;
+  --progress-bar: linear-gradient(90deg, #4ea1ff 0%, #7ec2ff 100%);
+  --progress-text: #ffffff;
+  --dictionary-color: #ffc857;
+  --example-color: #b8c5ef;
+  --finish-color: #7ec2ff;
+  --strong-color: #7ec2ff;
+  --danger-color: #ff6b7a;
+  --shadow-soft: 0 10px 24px rgba(4, 8, 18, 0.45);
+  --shadow-button: 0 4px 0 rgba(39, 87, 146, 0.95);
+}
+
+/* Тема 5: неоновая лаванда */
+body.theme-lavender {
+  --bg-color: #180f25;
+  --bg-gradient: radial-gradient(circle at top, #2b1a43 0%, #221537 45%, #150d23 100%);
+  --surface-color: #2a1c44;
+  --surface-muted: #342353;
+  --text-color: #f3eaff;
+  --accent-color: #c569ff;
+  --accent-strong: #a74ad8;
+  --accent-soft: #4b2f72;
+  --menu-bg: #2a1c44;
+  --menu-hover: #3b285f;
+  --submenu-bg: #2a1c44;
+  --submenu-hover: #3b285f;
+  --button-bg: #c569ff;
+  --button-hover: #a74ad8;
+  --button-text: #ffffff;
+  --button-secondary-bg: #3a295a;
+  --button-secondary-hover: #4a3472;
+  --button-secondary-text: #f3eaff;
+  --input-bg: #3a295a;
+  --input-border: #6c4b9a;
+  --input-text: #f3eaff;
+  --placeholder-color: #c6b5de;
+  --progress-bg: #4a3370;
+  --progress-bar: linear-gradient(90deg, #c569ff 0%, #e49cff 100%);
+  --progress-text: #fff7ff;
+  --dictionary-color: #ffd166;
+  --example-color: #d8c8f0;
+  --finish-color: #e49cff;
+  --strong-color: #e49cff;
+  --danger-color: #ff7fbe;
+  --shadow-soft: 0 10px 24px rgba(5, 2, 11, 0.5);
+  --shadow-button: 0 4px 0 rgba(116, 50, 152, 0.95);
+}
+
 /* === ГЛАВНЫЕ СТИЛИ === */
 * {
   box-sizing: border-box;
