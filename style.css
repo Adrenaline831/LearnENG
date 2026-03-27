@@ -1,91 +1,161 @@
 /* === ПЕРЕМЕННЫЕ ТЕМЫ === */
 :root {
-  /* Тема 1: материнская (по умолчанию) */
-  --bg-color: #4F3A41;
-  --text-color: #fff;
-  --accent-color: #FFD580;
-  --menu-bg: #3B2A30;
-  --menu-hover: #241E20;
-  --submenu-bg: #3B2A30;
-  --submenu-hover: #241E20;
-  --button-bg: #3B2A30;
-  --button-hover: #241E20;
-  --input-bg: #3B2A30;
-  --input-text: #fff;
-  --placeholder-color: #aaa;
-  --progress-bg: #3B2A30;
-  --progress-bar: #7FC29B;
-  --progress-text: #000;
-  --dictionary-color: #FFD580;
-  --example-color: #ccc;
-  --finish-color: #7FC29B;
-  --strong-color: #FFD580;
+  /* База: стиль в духе Duolingo + quiz */
+  --bg-color: #f7fff8;
+  --bg-gradient: radial-gradient(circle at top, #f0fff4 0%, #eafbf0 45%, #dff6e7 100%);
+  --surface-color: #ffffff;
+  --surface-muted: #f3faf6;
+  --text-color: #1f2a24;
+  --accent-color: #58cc02;
+  --accent-strong: #46a302;
+  --accent-soft: #e8f8da;
+  --menu-bg: #ffffff;
+  --menu-hover: #f2f9f3;
+  --submenu-bg: #ffffff;
+  --submenu-hover: #e9f7eb;
+  --button-bg: #58cc02;
+  --button-hover: #46a302;
+  --button-text: #ffffff;
+  --button-secondary-bg: #ffffff;
+  --button-secondary-hover: #f2f9f3;
+  --button-secondary-text: #2b3a31;
+  --input-bg: #ffffff;
+  --input-border: #d4e9da;
+  --input-text: #1f2a24;
+  --placeholder-color: #93a39a;
+  --progress-bg: #e1efe5;
+  --progress-bar: linear-gradient(90deg, #58cc02 0%, #7bdd2f 100%);
+  --progress-text: #173119;
+  --dictionary-color: #ffb800;
+  --example-color: #66756d;
+  --finish-color: #58cc02;
+  --strong-color: #35a100;
+  --danger-color: #ff4b4b;
+  --shadow-soft: 0 10px 24px rgba(44, 93, 57, 0.12);
+  --shadow-button: 0 4px 0 rgba(46, 123, 0, 0.95);
 }
 
 /* Тема 2: зелёно-коричневая */
 body.theme-second {
-  --bg-color: #2E342A;
-  --text-color: #77754C;
-  --accent-color: #896C5C;
-  --menu-bg: #49352A;
-  --menu-hover: #896C5C;
-  --submenu-bg: #4D5031;
-  --submenu-hover: #896C5C;
-  --button-bg: #49352A;
-  --button-hover: #896C5C;
-  --input-bg: #4D5031;
-  --input-text: #77754C;
-  --placeholder-color: #77754C99;
-  --progress-bg: #4D5031;
-  --progress-bar: #896C5C;
-  --progress-text: #2E342A;
-  --dictionary-color: #896C5C;
-  --example-color: #77754C99;
-  --finish-color: #896C5C;
-  --strong-color: #896C5C;
+  --bg-color: #f5f4ee;
+  --bg-gradient: radial-gradient(circle at top, #f7f6ef 0%, #f0efdf 42%, #e7e6d0 100%);
+  --surface-color: #fffdf6;
+  --surface-muted: #f2f1e5;
+  --text-color: #3d3c2e;
+  --accent-color: #7e8f43;
+  --accent-strong: #657536;
+  --accent-soft: #e9ecd9;
+  --menu-bg: #fffdf6;
+  --menu-hover: #ece9d8;
+  --submenu-bg: #fffdf6;
+  --submenu-hover: #ece9d8;
+  --button-bg: #7e8f43;
+  --button-hover: #657536;
+  --button-text: #fff;
+  --button-secondary-bg: #fffdf6;
+  --button-secondary-hover: #ece9d8;
+  --button-secondary-text: #3d3c2e;
+  --input-bg: #fffdf6;
+  --input-border: #d8d4b9;
+  --input-text: #3d3c2e;
+  --placeholder-color: #8e8a6d;
+  --progress-bg: #ddd8bc;
+  --progress-bar: linear-gradient(90deg, #7e8f43 0%, #9cad58 100%);
+  --progress-text: #2f341a;
+  --dictionary-color: #b18346;
+  --example-color: #76735a;
+  --finish-color: #657536;
+  --strong-color: #657536;
+  --danger-color: #cc5742;
+  --shadow-soft: 0 10px 24px rgba(77, 70, 30, 0.14);
+  --shadow-button: 0 4px 0 rgba(74, 84, 37, 0.95);
 }
 
 /* Тема 3: тёмно-красная */
 body.theme-darkred {
-  --bg-color: #140F0C;
-  --text-color: #AF9E8A;
-  --accent-color: #860000;
-  --menu-bg: #510A04;
-  --menu-hover: #860000;
-  --submenu-bg: #510A04;
-  --submenu-hover: #860000;
-  --button-bg: #510A04;
-  --button-hover: #860000;
-  --input-bg: #4F3C35;
-  --input-text: #AF9E8A;
-  --placeholder-color: #AF9E8A99;
-  --progress-bg: #4F3C35;
-  --progress-bar: #860000;
-  --progress-text: #140F0C;
-  --dictionary-color: #860000;
-  --example-color: #AF9E8A99;
-  --finish-color: #860000;
-  --strong-color: #860000;
+  --bg-color: #161313;
+  --bg-gradient: radial-gradient(circle at top, #1f1a1a 0%, #181313 48%, #120d0d 100%);
+  --surface-color: #241d1d;
+  --surface-muted: #2f2525;
+  --text-color: #f4e6e6;
+  --accent-color: #d13f3f;
+  --accent-strong: #ac2f2f;
+  --accent-soft: #3f2929;
+  --menu-bg: #241d1d;
+  --menu-hover: #352626;
+  --submenu-bg: #241d1d;
+  --submenu-hover: #352626;
+  --button-bg: #d13f3f;
+  --button-hover: #ac2f2f;
+  --button-text: #fff;
+  --button-secondary-bg: #2f2525;
+  --button-secondary-hover: #3c2f2f;
+  --button-secondary-text: #f4e6e6;
+  --input-bg: #2f2525;
+  --input-border: #553f3f;
+  --input-text: #f4e6e6;
+  --placeholder-color: #b79f9f;
+  --progress-bg: #3a2e2e;
+  --progress-bar: linear-gradient(90deg, #d13f3f 0%, #ef6f6f 100%);
+  --progress-text: #ffe9e9;
+  --dictionary-color: #ffc24d;
+  --example-color: #c6b2b2;
+  --finish-color: #ef6f6f;
+  --strong-color: #ef6f6f;
+  --danger-color: #ff7f7f;
+  --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.35);
+  --shadow-button: 0 4px 0 rgba(102, 33, 33, 0.95);
 }
 
 /* === ГЛАВНЫЕ СТИЛИ === */
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
-  font-family: Arial, sans-serif;
-  background-color: var(--bg-color);
+  font-family: "Nunito", "Segoe UI", Arial, sans-serif;
+  background: var(--bg-gradient);
   color: var(--text-color);
-  padding: 10px;
+  min-height: 100vh;
+  padding: 18px;
+}
+
+#lessonContent {
+  max-width: 900px;
+  margin: 0 auto;
+  background: var(--surface-color);
+  border: 1px solid rgba(26, 86, 42, 0.08);
+  border-radius: 18px;
+  box-shadow: var(--shadow-soft);
+  padding: 18px;
+}
+
+#page0,
+#page1_5,
+#page2,
+#page3,
+#page4,
+#page5,
+#page6,
+#finishPage {
+  background: var(--surface-muted);
+  border: 1px solid rgba(24, 75, 41, 0.08);
+  border-radius: 16px;
+  padding: 16px;
 }
 
 h2 {
-  font-size: 1.2em;
-  margin-bottom: 10px;
+  font-size: 1.5rem;
+  line-height: 1.3;
+  margin: 0 0 14px;
   color: var(--text-color);
 }
 
 p {
   margin: 10px 0;
-  font-size: 1.1em;
+  font-size: 1.06rem;
+  line-height: 1.45;
 }
 
 strong {
@@ -94,15 +164,18 @@ strong {
 
 /* === МЕНЮ === */
 .menu__btn {
-  background-color: var(--menu-bg);
+  background: var(--menu-bg);
   color: var(--text-color);
-  border: none;
-  padding: 10px 15px;
-  border-radius: 8px;
-  font-size: 1.1em;
+  border: 1px solid rgba(34, 90, 50, 0.14);
+  padding: 12px 16px;
+  border-radius: 14px;
+  font-size: 1.02rem;
+  font-weight: 800;
   cursor: pointer;
-  transition: background 0.3s;
-  width: 100%;
+  transition: transform 0.15s ease, background 0.2s ease;
+  width: min(900px, 100%);
+  display: block;
+  margin: 0 auto;
   text-align: left;
 }
 
@@ -110,14 +183,19 @@ strong {
   background-color: var(--menu-hover);
 }
 
+.menu__btn:active {
+  transform: translateY(1px);
+}
+
 .menu__nav {
   list-style: none;
-  padding: 0;
-  margin: 10px 0;
+  padding: 10px;
+  margin: 10px auto 14px;
+  width: min(900px, 100%);
   display: none;
   background: var(--submenu-bg);
-  border-radius: 8px;
-  overflow: hidden;
+  border: 1px solid rgba(35, 89, 50, 0.12);
+  border-radius: 14px;
 }
 
 .menu__nav.show {
@@ -125,38 +203,43 @@ strong {
 }
 
 .menu__nav-item {
-  margin: 5px 0;
+  margin: 6px 0;
 }
 
 .level-btn {
   background: var(--menu-bg);
   color: var(--text-color);
-  border: none;
-  padding: 10px;
+  border: 1px solid rgba(35, 89, 50, 0.12);
+  padding: 10px 12px;
   cursor: pointer;
   width: 100%;
   text-align: left;
-  font-weight: bold;
-  border-radius: 6px;
-  transition: background 0.3s;
+  font-weight: 800;
+  border-radius: 10px;
+  transition: transform 0.15s ease, background 0.2s ease;
 }
 
 .level-btn:hover {
   background-color: var(--menu-hover);
 }
 
+.level-btn:active {
+  transform: translateY(1px);
+}
+
 .submenu {
   list-style: none;
-  padding-left: 15px;
-  margin: 5px 0;
+  padding-left: 8px;
+  margin: 8px 0 2px;
   display: none;
 }
 
 .submenu li {
-  padding: 8px;
+  padding: 9px 10px;
   cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.3s;
+  border-radius: 8px;
+  transition: background 0.2s ease;
+  margin-bottom: 4px;
 }
 
 .submenu li:hover {
@@ -164,46 +247,95 @@ strong {
 }
 
 .submenu li.active {
-  background: var(--accent-color);
-  color: var(--bg-color);
-  font-weight: bold;
+  background: var(--accent-soft);
+  color: var(--text-color);
+  font-weight: 700;
 }
 
 /* === КНОПКИ === */
 button {
-  background-color: var(--button-bg);
-  color: var(--text-color);
+  background: var(--button-bg);
+  color: var(--button-text);
   border: none;
-  padding: 10px 15px;
-  border-radius: 8px;
-  font-size: 1em;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  padding: 11px 14px;
   cursor: pointer;
-  transition: background 0.3s;
-  margin: 5px 0;
+  transition: transform 0.12s ease, filter 0.2s ease, background 0.2s ease;
+  margin: 6px 6px 0 0;
+  box-shadow: var(--shadow-button);
 }
 
 button:hover {
-  background-color: var(--button-hover);
+  filter: brightness(1.03);
+  background: var(--button-hover);
+}
+
+button:active {
+  transform: translateY(2px);
+  box-shadow: 0 2px 0 rgba(46, 123, 0, 0.9);
 }
 
 button:disabled {
-  opacity: 0.6;
+  opacity: 0.65;
   cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Нейтральные кнопки (показываем ответ, повторить, пропустить) */
+#showAnswerBtn,
+#showAnswerBtn3,
+button[onclick="repeatPhase()"],
+button[onclick="goToNextPage()"],
+#dictationNextBtn {
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-text);
+  border: 1px solid rgba(32, 86, 48, 0.2);
+  box-shadow: none;
+}
+
+#showAnswerBtn:hover,
+#showAnswerBtn3:hover,
+button[onclick="repeatPhase()"]:hover,
+button[onclick="goToNextPage()"]:hover,
+#dictationNextBtn:hover {
+  background: var(--button-secondary-hover);
+}
+
+/* Кнопки правильный/неправильный */
+button[onclick="markAnswer(false)"],
+button[onclick="markAnswer3(false)"],
+button[onclick="showNextCard(false)"] {
+  background: var(--danger-color);
+  box-shadow: 0 4px 0 rgba(140, 20, 20, 0.82);
 }
 
 /* === ПОЛЯ ВВОДА === */
-textarea, input[type="text"] {
+textarea,
+input[type="text"] {
   width: 100%;
-  padding: 10px;
-  border-radius: 8px;
-  border: none;
-  margin: 5px 0 10px 0;
+  padding: 12px 13px;
+  border-radius: 12px;
+  border: 1px solid var(--input-border);
+  margin: 6px 0 10px;
   background: var(--input-bg);
   color: var(--input-text);
-  font-size: 1em;
+  font-size: 1rem;
+  font-weight: 600;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
-textarea::placeholder, input::placeholder {
+textarea:focus,
+input[type="text"]:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 3px rgba(88, 204, 2, 0.2);
+}
+
+textarea::placeholder,
+input::placeholder {
   color: var(--placeholder-color);
 }
 
@@ -211,27 +343,29 @@ textarea::placeholder, input::placeholder {
 #progressBarContainer {
   width: 100%;
   background: var(--progress-bg);
-  border-radius: 8px;
-  margin: 15px 0;
+  border-radius: 999px;
+  margin: 12px 0 16px;
   overflow: hidden;
+  border: 1px solid rgba(28, 97, 44, 0.12);
 }
 
 #progressBar {
-  height: 20px;
+  height: 22px;
   width: 0%;
   background: var(--progress-bar);
   text-align: center;
   color: var(--progress-text);
-  font-weight: bold;
-  line-height: 20px;
-  border-radius: 8px;
-  transition: width 0.4s;
+  font-weight: 900;
+  line-height: 22px;
+  border-radius: 999px;
+  transition: width 0.35s ease;
 }
 
 #progressText {
   text-align: center;
-  margin: 5px 0;
-  font-size: 0.9em;
+  margin: 4px 0 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--text-color);
 }
 
@@ -240,13 +374,16 @@ textarea::placeholder, input::placeholder {
   background: transparent;
   border: none;
   color: var(--dictionary-color);
-  font-size: 22px;
+  font-size: 1.45rem;
   cursor: pointer;
   transition: transform 0.2s;
+  box-shadow: none;
+  margin-left: 6px;
 }
 
 .dictionary-btn:hover {
-  transform: scale(1.2);
+  transform: scale(1.12);
+  filter: brightness(1.05);
 }
 
 .dictionary-btn.active {
@@ -254,10 +391,26 @@ textarea::placeholder, input::placeholder {
 }
 
 /* === ЭЛЕМЕНТЫ === */
+#card,
+#phase2-translation,
+#phase3-original,
+#dictation-translation {
+  background: var(--surface-color);
+  border: 1px solid rgba(34, 95, 51, 0.12);
+  border-radius: 14px;
+  padding: 14px;
+  font-weight: 700;
+}
+
 .example {
   font-style: italic;
   color: var(--example-color);
-  margin-top: 5px;
+  margin-top: 8px;
+  margin-bottom: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px dashed rgba(48, 112, 64, 0.24);
 }
 
 .hidden {
@@ -267,56 +420,113 @@ textarea::placeholder, input::placeholder {
 /* === ЗАВЕРШЕНИЕ === */
 #finishPage h2 {
   color: var(--finish-color);
-  font-size: 1.5em;
+  font-size: 1.8rem;
 }
 
-/* === АДАПТИВ === */
+/* === АДАПТИВ (ПЛАНШЕТ/ТЕЛЕФОН) === */
 @media (max-width: 768px) {
   body {
-    padding: 5px;
-    font-size: 0.9em;
+    padding: 10px;
+  }
+
+  #lessonContent {
+    padding: 12px;
+    border-radius: 14px;
+  }
+
+  #page0,
+  #page1_5,
+  #page2,
+  #page3,
+  #page4,
+  #page5,
+  #page6,
+  #finishPage {
+    padding: 12px;
+    border-radius: 12px;
   }
 
   h2 {
-    font-size: 1em;
+    font-size: 1.24rem;
   }
 
   p {
-    font-size: 1em;
+    font-size: 1rem;
   }
 
   .menu__btn,
   .level-btn,
   button {
-    font-size: 1em;
-    padding: 8px 12px;
+    width: 100%;
+    font-size: 0.98rem;
+    padding: 10px 12px;
+    margin-right: 0;
   }
 
   .submenu li {
-    padding: 6px;
-    font-size: 0.95em;
+    padding: 8px;
+    font-size: 0.95rem;
   }
 
-  textarea, input[type="text"] {
-    font-size: 0.95em;
-    padding: 8px;
+  textarea,
+  input[type="text"] {
+    font-size: 0.97rem;
+    padding: 10px;
   }
 
   #progressBar {
-    height: 16px;
-    font-size: 0.8em;
-    line-height: 16px;
+    height: 20px;
+    font-size: 0.84rem;
+    line-height: 20px;
   }
 
   #progressText {
-    font-size: 0.8em;
+    font-size: 0.86rem;
   }
 
   .dictionary-btn {
-    font-size: 18px;
+    font-size: 1.25rem;
   }
 
   #finishPage h2 {
-    font-size: 1.3em;
+    font-size: 1.45rem;
+  }
+}
+
+/* Компактные телефоны */
+@media (max-width: 480px) {
+  body {
+    padding: 8px;
+  }
+
+  #lessonContent {
+    padding: 10px;
+  }
+
+  h2 {
+    font-size: 1.12rem;
+  }
+
+  p {
+    font-size: 0.95rem;
+  }
+
+  #card,
+  #phase2-translation,
+  #phase3-original,
+  #dictation-translation {
+    padding: 11px;
+    font-size: 0.96rem;
+  }
+
+  .example {
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+
+  #progressBar {
+    height: 18px;
+    line-height: 18px;
+    font-size: 0.78rem;
   }
 }
