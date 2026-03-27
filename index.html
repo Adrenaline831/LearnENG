@@ -149,6 +149,11 @@ function startPhase(phase) {
   currentIndex = 0;
   wrongQueue = [];
 
+  if (phase === 4 || phase === 5) {
+    wrongQueue = words.map((_, i) => i);
+    currentIndex = wrongQueue[0] ?? 0;
+  }
+
   shuffleAll(); // 🔥 фикс порядка
 
   updateProgress();
@@ -162,7 +167,9 @@ function startPhase(phase) {
 // === Прогресс ===
 function updateProgress() {
   const total = words.length;
-  const done = currentIndex;
+  const done = (currentPhase === 4 || currentPhase === 5)
+    ? total - wrongQueue.length
+    : currentIndex;
   const percent = Math.min(100, Math.round((done / total) * 100));
 
   const bar = document.getElementById("progressBar");
@@ -182,19 +189,23 @@ function getCurrentIndex() {
 
 // === Фаза 2 ===
 function markAnswer(correct) {
-  if (!correct) {
-    wrongQueue.push(currentIndex);
+  if (wrongQueue.length === 0) {
+    goToNextPage();
+    return;
   }
 
-  currentIndex++;
+  const currentWordIndex = wrongQueue.shift();
 
-  if (currentIndex >= words.length) {
-    if (wrongQueue.length > 0) {
-      currentIndex = wrongQueue.shift();
-    } else {
-      goToNextPage();
-      return;
-    }
+  if (!correct) {
+    wrongQueue.push(currentWordIndex);
+  }
+
+  currentIndex = wrongQueue[0] ?? words.length;
+
+  if (wrongQueue.length === 0) {
+    updateProgress();
+    goToNextPage();
+    return;
   }
 
   updateProgress();
@@ -203,19 +214,23 @@ function markAnswer(correct) {
 
 // === Фаза 3 ===
 function markAnswer3(correct) {
-  if (!correct) {
-    wrongQueue.push(currentIndex);
+  if (wrongQueue.length === 0) {
+    goToNextPage();
+    return;
   }
 
-  currentIndex++;
+  const currentWordIndex = wrongQueue.shift();
 
-  if (currentIndex >= words.length) {
-    if (wrongQueue.length > 0) {
-      currentIndex = wrongQueue.shift();
-    } else {
-      goToNextPage();
-      return;
-    }
+  if (!correct) {
+    wrongQueue.push(currentWordIndex);
+  }
+
+  currentIndex = wrongQueue[0] ?? words.length;
+
+  if (wrongQueue.length === 0) {
+    updateProgress();
+    goToNextPage();
+    return;
   }
 
   updateProgress();
@@ -247,7 +262,7 @@ function showNextCard() {
 
 // === Фаза 2 UI ===
 function showPhase2() {
-  if (currentIndex >= words.length && wrongQueue.length === 0) {
+  if (wrongQueue.length === 0) {
     goToNextPage();
     return;
   }
@@ -263,7 +278,7 @@ function showPhase2() {
 
 // === Фаза 3 UI ===
 function showPhase3() {
-  if (currentIndex >= words.length && wrongQueue.length === 0) {
+  if (wrongQueue.length === 0) {
     goToNextPage();
     return;
   }
