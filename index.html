@@ -54,7 +54,8 @@
       <button id="addToDictionaryBtn" class="dictionary-btn">☆</button>
     </p>
     <div class="example" id="cardExample"></div>
-    <button onclick="showNextCard()">Далее</button>
+    <button onclick="showNextCard(true)">Далее</button>
+    <button onclick="showNextCard(false)">❌</button>
     <button onclick="repeatPhase()">Повторить этап</button>
     <button onclick="goToNextPage()">Пропустить этап</button>
   </div>
@@ -125,6 +126,7 @@ let examples = [];
 let currentPhase = 0; // 3 - карточки, 4 - перевод->оригинал, 5 - оригинал->перевод, 6 - диктант
 let currentIndex = 0;
 let wrongQueue = [];
+let phaseQueue = [];
 let dictationQueue = [];
 let dictationWaiting = false;
 let pullExamplesFromJSON = true;
@@ -429,9 +431,10 @@ function startPhase(phase) {
   currentPhase = phase;
   currentIndex = 0;
   wrongQueue = [];
+  phaseQueue = words.map((_, i) => i);
   updateProgress();
 
-  if (phase === 3) showNextCard();
+  if (phase === 3) showNextCard(null);
   else if (phase === 4) showPhase2();
   else if (phase === 5) showPhase3();
   else if (phase === 6) startDictationPhase();
@@ -440,8 +443,12 @@ function startPhase(phase) {
 /* === Прогресс (единая простая версия) === */
 function updateProgress() {
   const total = Math.max(1, words.length);
-  // сделаем простой подсчёт — сколько показано позиций (currentIndex в пределах total)
-  const done = Math.min(total, currentIndex);
+  let done = Math.min(total, currentIndex);
+  if (currentPhase >= 3 && currentPhase <= 5) {
+    done = total - phaseQueue.length;
+  } else if (currentPhase === 6) {
+    done = total - dictationQueue.length;
+  }
   const percent = Math.round((done / total) * 100);
   const bar = document.getElementById("progressBar");
   const text = document.getElementById("progressText");
@@ -453,26 +460,31 @@ function updateProgress() {
 }
 
 /* === Фаза 3 (карточки) === */
-function showNextCard() {
-  if (currentIndex >= words.length) { goToNextPage(); return; }
+function showNextCard(correct = true) {
+  if (phaseQueue.length > 0 && correct !== null) {
+    if (correct) phaseQueue.shift();
+    else phaseQueue.push(phaseQueue.shift());
+  }
+  if (phaseQueue.length === 0) { goToNextPage(); return; }
   document.getElementById("page3").classList.remove("hidden");
-  const word = words[currentIndex];
+  const i = phaseQueue[0];
+  currentIndex = i;
+  const word = words[i];
   document.getElementById("card").innerHTML =
-    `<strong>${word}</strong> [${transcriptions[currentIndex] || ""}] — ${translations[currentIndex] || ""}
+    `<strong>${word}</strong> [${transcriptions[i] || ""}] — ${translations[i] || ""}
      <button id="speakBtn">🔊</button>
      <button id="addToDictionaryBtnDynamic" class="dictionary-btn">${isInDictionary(word) ? "★" : "☆"}</button>`;
-  document.getElementById("cardExample").textContent = examples[currentIndex] || "";
+  document.getElementById("cardExample").textContent = examples[i] || "";
 
   document.getElementById("speakBtn").onclick = () => speakWord(word);
   document.getElementById("addToDictionaryBtnDynamic").onclick = () => toggleDictionary(word, document.getElementById("addToDictionaryBtnDynamic"));
 
-  currentIndex++;
   updateProgress();
 }
 
 /* === Фаза 4 === */
 function showPhase2() {
-  if (currentIndex >= words.length && wrongQueue.length === 0) { goToNextPage(); return; }
+  if (phaseQueue.length === 0) { goToNextPage(); return; }
   document.getElementById("page4").classList.remove("hidden");
   document.getElementById("answerSection").classList.add("hidden");
   const i = getCurrentIndex();
@@ -497,15 +509,17 @@ function showAnswer() {
 }
 
 function markAnswer(correct) {
-  const i = getCurrentIndex();
-  if (!correct) wrongQueue.push(i);
+  if (phaseQueue.length > 0) {
+    if (correct) phaseQueue.shift();
+    else phaseQueue.push(phaseQueue.shift());
+  }
   nextIndex();
   showPhase2();
 }
 
 /* === Фаза 5 === */
 function showPhase3() {
-  if (currentIndex >= words.length && wrongQueue.length === 0) { goToNextPage(); return; }
+  if (phaseQueue.length === 0) { goToNextPage(); return; }
   document.getElementById("page5").classList.remove("hidden");
   document.getElementById("answerSection3").classList.add("hidden");
   const i = getCurrentIndex();
@@ -530,22 +544,23 @@ function showAnswer3() {
 }
 
 function markAnswer3(correct) {
-  const i = getCurrentIndex();
-  if (!correct) wrongQueue.push(i);
+  if (phaseQueue.length > 0) {
+    if (correct) phaseQueue.shift();
+    else phaseQueue.push(phaseQueue.shift());
+  }
   nextIndex();
   showPhase3();
 }
 
 /* === Общие функции для перехода по списку === */
 function nextIndex() {
-  if (wrongQueue.length > 0) currentIndex = wrongQueue.shift();
-  else currentIndex++;
+  currentIndex = getCurrentIndex();
   updateProgress();
 }
 
 function getCurrentIndex() {
-  // если есть очередь неправильных — показываем её первый
-  return (wrongQueue.length > 0) ? wrongQueue[0] : Math.min(currentIndex, Math.max(0, words.length - 1));
+  if (phaseQueue.length > 0) return phaseQueue[0];
+  return Math.min(currentIndex, Math.max(0, words.length - 1));
 }
 
 /* === Переходы между фазами === */
@@ -590,6 +605,7 @@ function startDictationPhase() {
   dictationQueue = words.map((_, i) => i);
   dictationWaiting = false;
   currentIndex = 0;
+  updateProgress();
   showNextDictationWord();
 }
 
@@ -660,6 +676,7 @@ function checkDictation() {
     // правильно — удаляем текущий элемент из очереди и переходим к следующему
     feedbackEl.textContent = "✅ Верно!";
     dictationQueue.shift();
+    updateProgress();
 
     // кнопки: пока переход внутрь, отключаем чтобы избежать двойных нажатий
     if (checkBtn) checkBtn.disabled = true;
