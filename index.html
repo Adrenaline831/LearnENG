@@ -1,362 +1,389 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Learn English</title>
-<link rel="stylesheet" href="style.css">
-<script src="menuLoader"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learn English</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 
+<body>
 
-<!-- Кнопка меню -->
-<button class="menu__btn" id="menuBtn">☰ Меню</button>
-<ul class="menu__nav" id="menuDropdown">
-  <!-- Кнопка «Мой словарь» -->
-  <li class="menu__nav-item">
-    <button class="level-btn" id="myDictionaryBtn">Мой словарь</button>
-  </li>
-</ul>
+    <!-- Кнопка меню -->
+    <button class="menu__btn" id="menuBtn">☰ Меню</button>
 
-<div id="lessonContent">
-  <div id="progressText"></div>
-  <div id="progressBarContainer">
-    <div id="progressBar">0%</div>
-  </div>
+    <ul class="menu__nav" id="menuDropdown">
+        <!-- Кнопка «Мой словарь» -->
+        <li class="menu__nav-item">
+            <button class="level-btn" id="myDictionaryBtn">Мой словарь</button>
+        </li>
+    </ul>
 
-  <!-- Страница 0: самостоятельный ввод слов -->
-  <div id="page0">
-    <h2>Введите английские слова (по одному на строку)</h2>
-    <textarea id="englishWords" rows="8" placeholder="cat&#10;dog&#10;pig"></textarea><br>
-    <button onclick="goToTranscription()">Дальше</button>
-  </div>
+    <div id="lessonContent">
 
-  <!-- Страница 1: транскрипции -->
-  <div id="page1_5" class="hidden">
-    <h2>Введите транскрипции (можно пропустить)</h2>
-    <textarea id="englishTranscription" rows="8" placeholder="kæt&#10;dɒg&#10;pɪg"></textarea><br>
-    <button onclick="skipTranscription()">Пропустить</button>
-    <button onclick="goToTranslations()">Дальше</button>
-  </div>
+        <div id="progressText"></div>
 
-  <!-- Страница 2: переводы -->
-  <div id="page2" class="hidden">
-    <h2>Введите переводы (по одному на строку)</h2>
-    <textarea id="translatedWords" rows="8" placeholder="кот&#10;собака&#10;свинья"></textarea><br>
-    <button onclick="startSelfLearning()">Начать обучение</button>
-  </div>
+        <div id="progressBarContainer">
+            <div id="progressBar">0%</div>
+        </div>
 
-  <!-- Фазы обучения -->
-  <div id="page3" class="hidden">
-    <h2>Фаза 1: Ознакомление</h2>
-    <p id="card">
-      <span id="cardWord"></span>
-      <button id="addToDictionaryBtn" class="dictionary-btn">☆</button>
-    </p>
-    <div class="example" id="cardExample"></div>
-    <button onclick="showNextCard()">Далее</button>
-    <button onclick="repeatPhase()">Повторить этап</button>
-    <button onclick="goToNextPage()">Пропустить этап</button>
-  </div>
+        <!-- Страница 0 -->
+        <div id="page0">
+            <h2>Введите английские слова (по одному на строку)</h2>
+            <textarea id="englishWords" rows="8" placeholder="cat
+dog
+pig"></textarea><br>
+            <button onclick="goToTranscription()">Дальше</button>
+        </div>
 
-  <div id="page4" class="hidden">
-    <h2>Фаза 2: Перевод → Оригинал</h2>
-    <p id="phase2-translation">
-      <span id="phase2Word"></span>
-      <button id="addToDictionaryBtn2" class="dictionary-btn">☆</button>
-    </p>
-    <div class="example" id="phase2-example"></div>
-    <button id="showAnswerBtn" onclick="showAnswer()">Показать ответ</button>
-    <div id="answerSection" class="hidden">
-      <p id="phase2-answer"></p>
-      <button onclick="markAnswer(true)">✅</button>
-      <button onclick="markAnswer(false)">❌</button>
-      <button onclick="repeatPhase()">Повторить этап</button>
-      <button onclick="goToNextPage()">Пропустить этап</button>
+        <!-- Страница 1 -->
+        <div id="page1_5" class="hidden">
+            <h2>Введите транскрипции (можно пропустить)</h2>
+            <textarea id="englishTranscription" rows="8" placeholder="kæt
+dɒg
+pɪg"></textarea><br>
+            <button onclick="skipTranscription()">Пропустить</button>
+            <button onclick="goToTranslations()">Дальше</button>
+        </div>
+
+        <!-- Страница 2 -->
+        <div id="page2" class="hidden">
+            <h2>Введите переводы (по одному на строку)</h2>
+            <textarea id="translatedWords" rows="8" placeholder="кот
+собака
+свинья"></textarea><br>
+            <button onclick="startSelfLearning()">Начать обучение</button>
+        </div>
+
+        <!-- Фаза 1 -->
+        <div id="page3" class="hidden">
+            <h2>Фаза 1: Ознакомление</h2>
+            <p id="card">
+                <span id="cardWord"></span>
+                <button id="addToDictionaryBtn" class="dictionary-btn">☆</button>
+            </p>
+            <div class="example" id="cardExample"></div>
+            <button onclick="showNextCard()">Далее</button>
+            <button onclick="repeatPhase()">Повторить этап</button>
+            <button onclick="goToNextPage()">Пропустить этап</button>
+        </div>
+
+        <!-- Фаза 2 -->
+        <div id="page4" class="hidden">
+            <h2>Фаза 2: Перевод → Оригинал</h2>
+            <p id="phase2-translation">
+                <span id="phase2Word"></span>
+                <button id="addToDictionaryBtn2" class="dictionary-btn">☆</button>
+            </p>
+            <div class="example" id="phase2-example"></div>
+            <button id="showAnswerBtn" onclick="showAnswer()">Показать ответ</button>
+
+            <div id="answerSection" class="hidden">
+                <p id="phase2-answer"></p>
+                <button onclick="markAnswer(true)">✅</button>
+                <button onclick="markAnswer(false)">❌</button>
+                <button onclick="repeatPhase()">Повторить этап</button>
+                <button onclick="goToNextPage()">Пропустить этап</button>
+            </div>
+        </div>
+
+        <!-- Фаза 3 -->
+        <div id="page5" class="hidden">
+            <h2>Фаза 3: Оригинал → Перевод</h2>
+            <p id="phase3-original">
+                <span id="phase3Word"></span>
+                <button id="addToDictionaryBtn3" class="dictionary-btn">☆</button>
+            </p>
+            <div class="example" id="phase3-example"></div>
+            <button id="showAnswerBtn3" onclick="showAnswer3()">Показать ответ</button>
+
+            <div id="answerSection3" class="hidden">
+                <p id="phase3-answer"></p>
+                <button onclick="markAnswer3(true)">✅</button>
+                <button onclick="markAnswer3(false)">❌</button>
+                <button onclick="repeatPhase()">Повторить этап</button>
+                <button onclick="goToNextPage()">Пропустить этап</button>
+            </div>
+        </div>
+
+        <!-- Фаза 4 -->
+        <div id="page6" class="hidden">
+            <h2>Фаза 4: Диктант</h2>
+            <p id="dictation-translation"></p>
+            <div class="example" id="dictation-example"></div>
+            <input type="text" id="dictation-input" placeholder="Введите английское слово" autocomplete="off">
+            <button onclick="checkDictation()">Проверить</button>
+            <button onclick="nextDictationAfterError()">Следующее</button>
+            <p id="dictation-feedback"></p>
+        </div>
+
+        <!-- Финал -->
+        <div id="finishPage" class="hidden">
+            <h2>🎉 Урок завершён!</h2>
+            <button onclick="backToMenu()">Вернуться к меню</button>
+        </div>
+
     </div>
-  </div>
 
-  <div id="page5" class="hidden">
-    <h2>Фаза 3: Оригинал → Перевод</h2>
-    <p id="phase3-original">
-      <span id="phase3Word"></span>
-      <button id="addToDictionaryBtn3" class="dictionary-btn">☆</button>
-    </p>
-    <div class="example" id="phase3-example"></div>
-    <button id="showAnswerBtn3" onclick="showAnswer3()">Показать ответ</button>
-    <div id="answerSection3" class="hidden">
-      <p id="phase3-answer"></p>
-      <button onclick="markAnswer3(true)">✅</button>
-      <button onclick="markAnswer3(false)">❌</button>
-      <button onclick="repeatPhase()">Повторить этап</button>
-      <button onclick="goToNextPage()">Пропустить этап</button>
-    </div>
-  </div>
+    <script>
+     /* ====================================================
+   Очистка и единая рабочая версия скрипта проекта
+==================================================== */
 
-  <div id="page6" class="hidden">
-    <h2>Фаза 4: Диктант</h2>
-    <p id="dictation-translation"></p>
-    <div class="example" id="dictation-example"></div>
-    <input type="text" id="dictation-input" placeholder="Введите английское слово" autocomplete="off">
-    <button onclick="checkDictation()">Проверить</button>
-    <button onclick="nextDictationAfterError()">Следующее</button>
-    <p id="dictation-feedback"></p>
-  </div>
-
-  <div id="finishPage" class="hidden">
-    <h2>🎉 Урок завершён!</h2>
-    <button onclick="backToMenu()">Вернуться к меню</button>
-  </div>
-</div>
-
-<script>
-
-  // === Глобальные переменные === 
+/* === Глобальные переменные === */
 let lessonsDB = {};
 let currentLesson = null;
 let currentLessonElement = null;
+
 let words = [];
 let transcriptions = [];
 let translations = [];
 let examples = [];
-let currentPhase = 0;
+
+let currentPhase = 0; // 3,4,5,6
 let currentIndex = 0;
+
 let wrongQueue = [];
 let dictationQueue = [];
+
 let dictationWaiting = false;
 let pullExamplesFromJSON = true;
+
 let lastSpokenWord = "";
 let slowMode = false;
 
-// === 🔥 Перемешивание слов ===
-function shuffleAll() {
-  const indices = words.map((_, i) => i);
-  for (let i = indices.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [indices[i], indices[j]] = [indices[j], indices[i]];
-  }
+/* === LocalStorage === */
+const LOCAL_STORAGE_KEY = "myDictionary";
+const FINISHED_LESSONS_KEY = "finishedLessons";
 
-  words = indices.map(i => words[i]);
-  transcriptions = indices.map(i => transcriptions[i]);
-  translations = indices.map(i => translations[i]);
-  examples = indices.map(i => examples[i]);
+function getMyDictionary() {
+    const dict = localStorage.getItem(LOCAL_STORAGE_KEY);
+    return dict ? JSON.parse(dict) : [];
 }
 
-// === Фазы ===
-function startPhase(phase) {
-  hideAllPages();
-  currentPhase = phase;
-  currentIndex = 0;
-  wrongQueue = [];
-
-  if (phase === 4 || phase === 5) {
-    wrongQueue = words.map((_, i) => i);
-    currentIndex = wrongQueue[0] ?? 0;
-  }
-
-  shuffleAll(); // 🔥 фикс порядка
-
-  updateProgress();
-
-  if (phase === 3) showNextCard();
-  if (phase === 4) showPhase2();
-  if (phase === 5) showPhase3();
-  if (phase === 6) startDictationPhase();
+function saveMyDictionary(dict) {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dict));
 }
 
-// === Прогресс ===
-function updateProgress() {
-  const total = words.length;
-  const done = (currentPhase === 4 || currentPhase === 5)
-    ? total - wrongQueue.length
-    : currentIndex;
-  const percent = Math.min(100, Math.round((done / total) * 100));
-
-  const bar = document.getElementById("progressBar");
-  const text = document.getElementById("progressText");
-
-  if (bar && text) {
-    bar.style.width = percent + "%";
-    bar.textContent = percent + "%";
-    text.textContent = `Прогресс: ${done}/${total}`;
-  }
+function getFinishedLessons() {
+    const finished = localStorage.getItem(FINISHED_LESSONS_KEY);
+    return finished ? JSON.parse(finished) : {};
 }
 
-// === Индекс ===
-function getCurrentIndex() {
-  return currentIndex;
+function saveFinishedLesson(level, lessonKey) {
+    const finished = getFinishedLessons();
+
+    if (!finished[level]) finished[level] = [];
+
+    if (!finished[level].includes(lessonKey)) {
+        finished[level].push(lessonKey);
+    }
+
+    localStorage.setItem(FINISHED_LESSONS_KEY, JSON.stringify(finished));
 }
 
-// === Фаза 2 ===
-function markAnswer(correct) {
-  if (wrongQueue.length === 0) {
-    goToNextPage();
-    return;
-  }
-
-  const currentWordIndex = wrongQueue.shift();
-
-  if (!correct) {
-    wrongQueue.push(currentWordIndex);
-  }
-
-  currentIndex = wrongQueue[0] ?? words.length;
-
-  if (wrongQueue.length === 0) {
-    updateProgress();
-    goToNextPage();
-    return;
-  }
-
-  updateProgress();
-  showPhase2();
+/* === Словарь === */
+function isInDictionary(word) {
+    return getMyDictionary().includes(word);
 }
 
-// === Фаза 3 ===
-function markAnswer3(correct) {
-  if (wrongQueue.length === 0) {
-    goToNextPage();
-    return;
-  }
+function toggleDictionary(word, button) {
+    let dict = getMyDictionary();
 
-  const currentWordIndex = wrongQueue.shift();
+    if (dict.includes(word)) {
+        dict = dict.filter(w => w !== word);
+        if (button) button.textContent = "☆";
+    } else {
+        dict.push(word);
+        if (button) button.textContent = "★";
+    }
 
-  if (!correct) {
-    wrongQueue.push(currentWordIndex);
-  }
-
-  currentIndex = wrongQueue[0] ?? words.length;
-
-  if (wrongQueue.length === 0) {
-    updateProgress();
-    goToNextPage();
-    return;
-  }
-
-  updateProgress();
-  showPhase3();
+    saveMyDictionary(dict);
 }
 
-// === Фаза карточек ===
-function showNextCard() {
-  if (currentIndex >= words.length) {
-    goToNextPage();
-    return;
-  }
+/* === Озвучка === */
+function speakWord(word) {
+    if (!word) return;
 
-  document.getElementById("page3").classList.remove("hidden");
+    const utter = new SpeechSynthesisUtterance(word);
+    utter.lang = "en-US";
+    utter.rate = slowMode ? 0.7 : 1.0;
 
-  const word = words[currentIndex];
+    speechSynthesis.cancel();
+    speechSynthesis.speak(utter);
 
-  document.getElementById("card").innerHTML =
-    `<strong>${word}</strong> [${transcriptions[currentIndex]}] — ${translations[currentIndex]}
-     <button id="speakBtn">🔊</button>`;
-
-  document.getElementById("cardExample").textContent = examples[currentIndex] || "";
-
-  document.getElementById("speakBtn").onclick = () => speakWord(word);
-
-  currentIndex++;
-  updateProgress();
+    slowMode = (lastSpokenWord === word) ? !slowMode : false;
+    lastSpokenWord = word;
 }
 
-// === Фаза 2 UI ===
-function showPhase2() {
-  if (wrongQueue.length === 0) {
-    goToNextPage();
-    return;
-  }
+/* === Загрузка JSON === */
+fetch("lessons.json")
+    .then(res => res.json())
+    .then(data => {
+        lessonsDB = data;
+        generateLevelsMenu();
+        addSettingsMenu();
+    })
+    .catch(err => console.error("Ошибка загрузки JSON:", err));
 
-  document.getElementById("page4").classList.remove("hidden");
-  document.getElementById("answerSection").classList.add("hidden");
+/* === Меню === */
+document.getElementById("menuBtn").addEventListener("click", () => {
+    document.getElementById("menuDropdown").classList.toggle("show");
+});
 
-  const i = getCurrentIndex();
+/* === Генерация меню === */
+function generateLevelsMenu() {
+    const menu = document.getElementById("menuDropdown");
+    menu.innerHTML = "";
 
-  document.getElementById("phase2-translation").textContent = translations[i];
-  document.getElementById("phase2-example").textContent = examples[i] || "";
+    const finished = getFinishedLessons();
+
+    Object.keys(lessonsDB).forEach(level => {
+
+        const li = document.createElement("li");
+        li.classList.add("menu__nav-item");
+
+        const btn = document.createElement("button");
+        btn.textContent = level;
+        btn.classList.add("level-btn");
+
+        li.appendChild(btn);
+
+        const ul = document.createElement("ul");
+        ul.classList.add("submenu");
+        ul.style.display = "none";
+
+        Object.keys(lessonsDB[level]).forEach(lessonKey => {
+
+            const lessonLi = document.createElement("li");
+            lessonLi.textContent = lessonsDB[level][lessonKey].title;
+            lessonLi.style.cursor = "pointer";
+
+            if (finished[level] && finished[level].includes(lessonKey)) {
+                lessonLi.style.backgroundColor = "#6fcf97";
+                lessonLi.style.color = "#000";
+            }
+
+            lessonLi.addEventListener("click", () => {
+                startLesson(level, lessonKey);
+
+                if (currentLessonElement) {
+                    currentLessonElement.style.backgroundColor = "";
+                    currentLessonElement.style.color = "";
+                }
+
+                lessonLi.style.backgroundColor = "#ffd966";
+                lessonLi.style.color = "#000";
+
+                currentLessonElement = lessonLi;
+            });
+
+            ul.appendChild(lessonLi);
+        });
+
+        li.appendChild(ul);
+        menu.appendChild(li);
+
+        btn.addEventListener("click", () => {
+            const isShown = ul.style.display === "block";
+
+            document.querySelectorAll(".submenu")
+                .forEach(sub => sub.style.display = "none");
+
+            ul.style.display = isShown ? "none" : "block";
+        });
+    });
 }
 
-// === Фаза 3 UI ===
-function showPhase3() {
-  if (wrongQueue.length === 0) {
-    goToNextPage();
-    return;
-  }
+/* === Настройки === */
+function addSettingsMenu() {
+    const menu = document.getElementById("menuDropdown");
 
-  document.getElementById("page5").classList.remove("hidden");
-  document.getElementById("answerSection3").classList.add("hidden");
+    const settingsLi = document.createElement("li");
+    const settingsBtn = document.createElement("button");
 
-  const i = getCurrentIndex();
+    settingsBtn.textContent = "⚙ Настройки";
+    settingsBtn.classList.add("level-btn");
 
-  document.getElementById("phase3-original").textContent = words[i];
-  document.getElementById("phase3-example").textContent = examples[i] || "";
+    settingsLi.appendChild(settingsBtn);
+
+    const settingsWindow = document.createElement("div");
+    settingsWindow.style.display = "none";
+
+    const resetBtn = document.createElement("button");
+    resetBtn.textContent = "Сброс примеров";
+
+    resetBtn.onclick = () => {
+        pullExamplesFromJSON = false;
+        examples = words.map(() => "");
+        alert("Примеры отключены");
+    };
+
+    settingsWindow.appendChild(resetBtn);
+    settingsLi.appendChild(settingsWindow);
+    menu.appendChild(settingsLi);
+
+    settingsBtn.onclick = () => {
+        settingsWindow.style.display =
+            settingsWindow.style.display === "block" ? "none" : "block";
+    };
 }
 
-// === Переход ===
-function goToNextPage() {
-  if (currentPhase === 3) startPhase(4);
-  else if (currentPhase === 4) startPhase(5);
-  else if (currentPhase === 5) startPhase(6);
-  else finishLesson();
+/* === Запуск урока === */
+function startLesson(level, lessonKey) {
+    const lesson = lessonsDB[level][lessonKey];
+    if (!lesson) return;
+
+    words = lesson.english || [];
+    transcriptions = lesson.transcriptions || [];
+    translations = lesson.translated || [];
+
+    examples = pullExamplesFromJSON
+        ? (lesson.example || [])
+        : words.map(() => "");
+
+    currentPhase = 3;
+    currentIndex = 0;
 }
 
-// === Диктант ===
-function startDictationPhase() {
-  dictationQueue = words.map((_, i) => i);
-  dictationWaiting = false;
-  showNextDictationWord();
+/* === Ввод слов === */
+function goToTranscription() {
+    const rawWords = document.getElementById("englishWords").value.trim();
+
+    if (!rawWords) {
+        alert("Введите слова");
+        return;
+    }
+
+    words = rawWords.split("\n").map(s => s.trim());
 }
 
-function showNextDictationWord() {
-  if (dictationQueue.length === 0) {
-    finishLesson();
-    return;
-  }
+function goToTranslations() {
+    const raw = document.getElementById("englishTranscription").value.trim();
 
-  currentIndex = dictationQueue[0];
-
-  hideAllPages();
-  document.getElementById("page6").classList.remove("hidden");
-
-  document.getElementById("dictation-translation").textContent = translations[currentIndex];
-  document.getElementById("dictation-example").textContent = examples[currentIndex] || "";
-
-  const input = document.getElementById("dictation-input");
-  input.value = "";
-  input.focus();
-
-  document.getElementById("dictation-feedback").textContent = "";
+    if (raw) {
+        transcriptions = raw.split("\n").map(s => s.trim());
+    }
 }
 
+/* === Диктант === */
 function checkDictation() {
-  if (dictationWaiting) return;
+    const index = dictationQueue[currentIndex];
 
-  const input = document.getElementById("dictation-input").value.trim();
-  const correctWord = words[currentIndex];
+    const input = document.getElementById("dictation-input").value.trim();
+    const correct = words[index];
 
-  if (!input) return;
+    if (!input) return;
 
-  if (input.toLowerCase() === correctWord.toLowerCase()) {
-    document.getElementById("dictation-feedback").textContent = "✅ Верно!";
-    dictationQueue.shift();
-    setTimeout(showNextDictationWord, 400);
-  } else {
-    document.getElementById("dictation-feedback").textContent = "❌ Неверно";
-    dictationQueue.push(dictationQueue.shift());
-    dictationWaiting = true;
-  }
+    if (input.toLowerCase() === correct.toLowerCase()) {
+        currentIndex++;
+    } else {
+        wrongQueue.push(index);
+    }
 }
-
-function nextDictationAfterError() {
-  if (!dictationWaiting) return;
-  dictationWaiting = false;
-  showNextDictationWord();
-}
-</script>
+    </script>
 
 </body>
+
 </html>
-
-
-
-
