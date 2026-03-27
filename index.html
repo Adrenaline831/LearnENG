@@ -132,10 +132,21 @@ let dictationWaiting = false;
 let pullExamplesFromJSON = true;
 let lastSpokenWord = "";
 let slowMode = false;
+let currentTheme = "theme-default";
 
 /* === LocalStorage: словарь и завершённые уроки === */
 const LOCAL_STORAGE_KEY = "myDictionary";
 const FINISHED_LESSONS_KEY = "finishedLessons";
+const THEME_STORAGE_KEY = "selectedTheme";
+const EXAMPLE_MODE_STORAGE_KEY = "pullExamplesFromJSON";
+
+const THEMES = [
+  { id: "theme-default", label: "Fresh Green" },
+  { id: "theme-second", label: "Olive Sand (ваша)" },
+  { id: "theme-darkred", label: "Dark Red" },
+  { id: "theme-midnight", label: "Midnight Blue" },
+  { id: "theme-lavender", label: "Lavender Neon" }
+];
 
 function getMyDictionary() {
   const dict = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -153,6 +164,33 @@ function saveFinishedLesson(level, lessonKey) {
   if (!finished[level]) finished[level] = [];
   if (!finished[level].includes(lessonKey)) finished[level].push(lessonKey);
   localStorage.setItem(FINISHED_LESSONS_KEY, JSON.stringify(finished));
+}
+
+function getPullExamplesFlag() {
+  const saved = localStorage.getItem(EXAMPLE_MODE_STORAGE_KEY);
+  if (saved === null) return true;
+  return saved === "true";
+}
+
+function savePullExamplesFlag(value) {
+  localStorage.setItem(EXAMPLE_MODE_STORAGE_KEY, String(value));
+}
+
+function applyTheme(themeId) {
+  const body = document.body;
+  THEMES.forEach(theme => {
+    if (theme.id !== "theme-default") body.classList.remove(theme.id);
+  });
+  if (themeId && themeId !== "theme-default") body.classList.add(themeId);
+  currentTheme = themeId || "theme-default";
+  localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
+}
+
+function loadSavedPreferences() {
+  pullExamplesFromJSON = getPullExamplesFlag();
+  const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || "theme-default";
+  const knownTheme = THEMES.some(t => t.id === savedTheme) ? savedTheme : "theme-default";
+  applyTheme(knownTheme);
 }
 
 /* === Проверка словаря === */
@@ -192,6 +230,8 @@ fetch("lessons.json")
     addSettingsMenu();
   })
   .catch(err => console.error("Ошибка загрузки JSON:", err));
+
+loadSavedPreferences();
 
 /* === Меню === */
 document.getElementById("menuBtn").addEventListener("click", () => {
@@ -284,28 +324,73 @@ function addSettingsMenu() {
   settingsWindow.style.backgroundColor = "#3a3a3a";
   settingsWindow.style.borderRadius = "5px";
 
+  const settingsSubmenu = document.createElement("ul");
+  settingsSubmenu.style.listStyle = "none";
+  settingsSubmenu.style.margin = "0";
+  settingsSubmenu.style.padding = "0";
+
+  const examplesLi = document.createElement("li");
   const resetBtn = document.createElement("button");
-  resetBtn.textContent = "Сброс примеров";
+  const syncResetButtonLabel = () => {
+    resetBtn.textContent = pullExamplesFromJSON
+      ? "Сброс примеров"
+      : "Вернуть примеры";
+  };
+  syncResetButtonLabel();
   resetBtn.style.display = "block";
   resetBtn.style.width = "100%";
   resetBtn.style.marginBottom = "5px";
   resetBtn.onclick = () => {
-    pullExamplesFromJSON = false;
-    examples = words.map(() => "");
-    alert("Примеры больше не подтягиваются из JSON!");
+    pullExamplesFromJSON = !pullExamplesFromJSON;
+    savePullExamplesFlag(pullExamplesFromJSON);
+    syncResetButtonLabel();
+    if (!pullExamplesFromJSON) {
+      examples = words.map(() => "");
+      alert("Примеры отключены: в уроках будут пустые примеры.");
+    } else {
+      alert("Примеры снова включены и будут браться из JSON.");
+    }
   };
-  settingsWindow.appendChild(resetBtn);
+  examplesLi.appendChild(resetBtn);
+  settingsSubmenu.appendChild(examplesLi);
 
+  const themesLi = document.createElement("li");
   const goToThemesBtn = document.createElement("button");
   goToThemesBtn.textContent = "Перейти к темам";
   goToThemesBtn.style.display = "block";
   goToThemesBtn.style.width = "100%";
-  goToThemesBtn.onclick = () => {
-    hideAllPages();
-    document.getElementById("page0").classList.remove("hidden");
-    document.getElementById("menuDropdown").classList.add("show");
+  themesLi.appendChild(goToThemesBtn);
+  settingsSubmenu.appendChild(themesLi);
+
+  const themesWindow = document.createElement("div");
+  themesWindow.style.display = "none";
+  themesWindow.style.marginTop = "8px";
+  themesWindow.style.padding = "8px";
+  themesWindow.style.background = "rgba(0,0,0,0.08)";
+  themesWindow.style.borderRadius = "8px";
+  settingsWindow.appendChild(themesWindow);
+
+  const renderThemeButtons = () => {
+    themesWindow.innerHTML = "";
+    THEMES.forEach(theme => {
+      const btn = document.createElement("button");
+      btn.textContent = theme.label + (currentTheme === theme.id ? " ✓" : "");
+      btn.style.display = "block";
+      btn.style.width = "100%";
+      btn.style.marginBottom = "6px";
+      btn.onclick = () => {
+        applyTheme(theme.id);
+        renderThemeButtons();
+      };
+      themesWindow.appendChild(btn);
+    });
   };
-  settingsWindow.appendChild(goToThemesBtn);
+  renderThemeButtons();
+  goToThemesBtn.onclick = () => {
+    themesWindow.style.display = themesWindow.style.display === "block" ? "none" : "block";
+  };
+
+  settingsWindow.appendChild(settingsSubmenu);
 
   settingsLi.appendChild(settingsWindow);
   menu.appendChild(settingsLi);
@@ -314,6 +399,10 @@ function addSettingsMenu() {
     const isShown = settingsWindow.style.display === "block";
     document.querySelectorAll("#menuDropdown > li > div").forEach(div => div.style.display = "none");
     settingsWindow.style.display = isShown ? "none" : "block";
+    if (!isShown) {
+      syncResetButtonLabel();
+      renderThemeButtons();
+    }
   });
 }
 
