@@ -247,7 +247,21 @@ function getWordsFromLesson(lesson) {
   if (Array.isArray(lesson[langWordsKey]) && lesson[langWordsKey].length) return lesson[langWordsKey];
   if (Array.isArray(lesson.english) && lesson.english.length) return lesson.english;
   if (Array.isArray(lesson.french) && lesson.french.length) return lesson.french;
+  if (Array.isArray(lesson.words) && lesson.words.length) return lesson.words;
   return [];
+}
+
+function getTranscriptionsFromLesson(lesson, wordsFallback) {
+  if (!lesson) return wordsFallback.map(() => "");
+  if (Array.isArray(lesson.transcriptions) && lesson.transcriptions.length) return lesson.transcriptions;
+  return wordsFallback.map(() => "");
+}
+
+function getTranslationsFromLesson(lesson, wordsFallback) {
+  if (!lesson) return wordsFallback.map(() => "");
+  if (Array.isArray(lesson.translated) && lesson.translated.length) return lesson.translated;
+  if (Array.isArray(lesson.translation) && lesson.translation.length) return lesson.translation;
+  return wordsFallback.map(() => "");
 }
 
 function loadLessonsForLanguage(languageCode) {
@@ -261,7 +275,12 @@ function loadLessonsForLanguage(languageCode) {
       lessonsDB = data || {};
       currentLanguage = languageCode;
       localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLanguage);
+      currentLesson = null;
       currentLessonElement = null;
+      words = [];
+      transcriptions = [];
+      translations = [];
+      examples = [];
       generateLevelsMenu();
       addSettingsMenu();
     })
@@ -495,8 +514,8 @@ function startLesson(level, lessonKey) {
 
   currentLesson = { level, lessonKey };
   words = getWordsFromLesson(lesson);
-  transcriptions = lesson.transcriptions || [];
-  translations = lesson.translated || [];
+  transcriptions = getTranscriptionsFromLesson(lesson, words);
+  translations = getTranslationsFromLesson(lesson, words);
   examples = pullExamplesFromJSON ? (lesson.example || []) : words.map(() => "");
   currentPhase = 3;
   currentIndex = 0;
@@ -520,8 +539,10 @@ function startDictionaryLesson() {
         const idx = lessonWords.indexOf(word);
         if (idx !== -1) {
           foundWords.push(lessonWords[idx]);
-          foundTrans.push(lesson.transcriptions[idx] || "");
-          foundTransl.push(lesson.translated[idx] || "(перевод)");
+          const lessonTranscriptions = getTranscriptionsFromLesson(lesson, lessonWords);
+          const lessonTranslations = getTranslationsFromLesson(lesson, lessonWords);
+          foundTrans.push(lessonTranscriptions[idx] || "");
+          foundTransl.push(lessonTranslations[idx] || "(перевод)");
           foundExamples.push(lesson.example ? lesson.example[idx] : "");
           found = true;
           break;
