@@ -132,10 +132,36 @@ let dictationWaiting = false;
 let pullExamplesFromJSON = true;
 let lastSpokenWord = "";
 let slowMode = false;
+let currentTheme = "theme-default";
+let currentLanguage = "en";
 
 /* === LocalStorage: словарь и завершённые уроки === */
 const LOCAL_STORAGE_KEY = "myDictionary";
 const FINISHED_LESSONS_KEY = "finishedLessons";
+const THEME_STORAGE_KEY = "selectedTheme";
+const EXAMPLE_MODE_STORAGE_KEY = "pullExamplesFromJSON";
+const LANGUAGE_STORAGE_KEY = "selectedLearningLanguage";
+
+const LANGUAGE_CONFIG = {
+  en: {
+    label: "Английский",
+    lessonsFile: "lessons.json",
+    wordsKey: "english"
+  },
+  fr: {
+    label: "Французский",
+    lessonsFile: "french_lessons.json",
+    wordsKey: "french"
+  }
+};
+
+const THEMES = [
+  { id: "theme-default", label: "Fresh Green" },
+  { id: "theme-second", label: "Olive Sand (ваша)" },
+  { id: "theme-darkred", label: "Dark Red" },
+  { id: "theme-midnight", label: "Midnight Blue" },
+  { id: "theme-lavender", label: "Lavender Neon" }
+];
 
 function getMyDictionary() {
   const dict = localStorage.getItem(LOCAL_STORAGE_KEY);
@@ -153,6 +179,35 @@ function saveFinishedLesson(level, lessonKey) {
   if (!finished[level]) finished[level] = [];
   if (!finished[level].includes(lessonKey)) finished[level].push(lessonKey);
   localStorage.setItem(FINISHED_LESSONS_KEY, JSON.stringify(finished));
+}
+
+function getPullExamplesFlag() {
+  const saved = localStorage.getItem(EXAMPLE_MODE_STORAGE_KEY);
+  if (saved === null) return true;
+  return saved === "true";
+}
+
+function savePullExamplesFlag(value) {
+  localStorage.setItem(EXAMPLE_MODE_STORAGE_KEY, String(value));
+}
+
+function applyTheme(themeId) {
+  const body = document.body;
+  THEMES.forEach(theme => {
+    if (theme.id !== "theme-default") body.classList.remove(theme.id);
+  });
+  if (themeId && themeId !== "theme-default") body.classList.add(themeId);
+  currentTheme = themeId || "theme-default";
+  localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
+}
+
+function loadSavedPreferences() {
+  pullExamplesFromJSON = getPullExamplesFlag();
+  const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || "theme-default";
+  const knownTheme = THEMES.some(t => t.id === savedTheme) ? savedTheme : "theme-default";
+  applyTheme(knownTheme);
+  const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  currentLanguage = LANGUAGE_CONFIG[savedLanguage] ? savedLanguage : "en";
 }
 
 /* === Проверка словаря === */
@@ -183,15 +238,38 @@ function speakWord(word) {
   lastSpokenWord = word;
 }
 
-/* === Загружаем JSON с уроками === */
-fetch("lessons.json")
-  .then(res => res.json())
-  .then(data => {
-    lessonsDB = data;
-    generateLevelsMenu();
-    addSettingsMenu();
-  })
-  .catch(err => console.error("Ошибка загрузки JSON:", err));
+loadSavedPreferences();
+loadLessonsForLanguage(currentLanguage);
+
+function getWordsFromLesson(lesson) {
+  if (!lesson) return [];
+  const langWordsKey = LANGUAGE_CONFIG[currentLanguage]?.wordsKey || "english";
+  if (Array.isArray(lesson[langWordsKey]) && lesson[langWordsKey].length) return lesson[langWordsKey];
+  if (Array.isArray(lesson.english) && lesson.english.length) return lesson.english;
+  if (Array.isArray(lesson.french) && lesson.french.length) return lesson.french;
+  return [];
+}
+
+function loadLessonsForLanguage(languageCode) {
+  const config = LANGUAGE_CONFIG[languageCode] || LANGUAGE_CONFIG.en;
+  fetch(config.lessonsFile)
+    .then(res => {
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    })
+    .then(data => {
+      lessonsDB = data || {};
+      currentLanguage = languageCode;
+      localStorage.setItem(LANGUAGE_STORAGE_KEY, currentLanguage);
+      currentLessonElement = null;
+      generateLevelsMenu();
+      addSettingsMenu();
+    })
+    .catch(err => {
+      console.error("Ошибка загрузки JSON:", err);
+      alert(`Не удалось загрузить базу ${config.lessonsFile}. Проверьте файл в проекте.`);
+    });
+}
 
 /* === Меню === */
 document.getElementById("menuBtn").addEventListener("click", () => {
@@ -284,28 +362,116 @@ function addSettingsMenu() {
   settingsWindow.style.backgroundColor = "#3a3a3a";
   settingsWindow.style.borderRadius = "5px";
 
+  const settingsSubmenu = document.createElement("ul");
+  settingsSubmenu.style.listStyle = "none";
+  settingsSubmenu.style.margin = "0";
+  settingsSubmenu.style.padding = "0";
+
+  const examplesLi = document.createElement("li");
   const resetBtn = document.createElement("button");
-  resetBtn.textContent = "Сброс примеров";
+  const syncResetButtonLabel = () => {
+    resetBtn.textContent = pullExamplesFromJSON
+      ? "Сброс примеров"
+      : "Вернуть примеры";
+  };
+  syncResetButtonLabel();
   resetBtn.style.display = "block";
   resetBtn.style.width = "100%";
   resetBtn.style.marginBottom = "5px";
   resetBtn.onclick = () => {
-    pullExamplesFromJSON = false;
-    examples = words.map(() => "");
-    alert("Примеры больше не подтягиваются из JSON!");
+    pullExamplesFromJSON = !pullExamplesFromJSON;
+    savePullExamplesFlag(pullExamplesFromJSON);
+    syncResetButtonLabel();
+    if (!pullExamplesFromJSON) {
+      examples = words.map(() => "");
+      alert("Примеры отключены: в уроках будут пустые примеры.");
+    } else {
+      alert("Примеры снова включены и будут браться из JSON.");
+    }
   };
-  settingsWindow.appendChild(resetBtn);
+  examplesLi.appendChild(resetBtn);
+  settingsSubmenu.appendChild(examplesLi);
 
+  const themesLi = document.createElement("li");
   const goToThemesBtn = document.createElement("button");
   goToThemesBtn.textContent = "Перейти к темам";
   goToThemesBtn.style.display = "block";
   goToThemesBtn.style.width = "100%";
-  goToThemesBtn.onclick = () => {
-    hideAllPages();
-    document.getElementById("page0").classList.remove("hidden");
-    document.getElementById("menuDropdown").classList.add("show");
+  themesLi.appendChild(goToThemesBtn);
+  settingsSubmenu.appendChild(themesLi);
+
+  const languageLi = document.createElement("li");
+  const languageBtn = document.createElement("button");
+  languageBtn.textContent = "Языки изучения";
+  languageBtn.style.display = "block";
+  languageBtn.style.width = "100%";
+  languageLi.appendChild(languageBtn);
+  settingsSubmenu.appendChild(languageLi);
+
+  const themesWindow = document.createElement("div");
+  themesWindow.style.display = "none";
+  themesWindow.style.marginTop = "8px";
+  themesWindow.style.padding = "8px";
+  themesWindow.style.background = "rgba(0,0,0,0.08)";
+  themesWindow.style.borderRadius = "8px";
+  settingsWindow.appendChild(themesWindow);
+
+  const languageWindow = document.createElement("div");
+  languageWindow.style.display = "none";
+  languageWindow.style.marginTop = "8px";
+  languageWindow.style.padding = "8px";
+  languageWindow.style.background = "rgba(0,0,0,0.08)";
+  languageWindow.style.borderRadius = "8px";
+  settingsWindow.appendChild(languageWindow);
+
+  const renderThemeButtons = () => {
+    themesWindow.innerHTML = "";
+    THEMES.forEach(theme => {
+      const btn = document.createElement("button");
+      btn.textContent = theme.label + (currentTheme === theme.id ? " ✓" : "");
+      btn.style.display = "block";
+      btn.style.width = "100%";
+      btn.style.marginBottom = "6px";
+      btn.onclick = () => {
+        applyTheme(theme.id);
+        renderThemeButtons();
+      };
+      themesWindow.appendChild(btn);
+    });
   };
-  settingsWindow.appendChild(goToThemesBtn);
+  renderThemeButtons();
+  goToThemesBtn.onclick = () => {
+    themesWindow.style.display = themesWindow.style.display === "block" ? "none" : "block";
+    if (themesWindow.style.display === "block") languageWindow.style.display = "none";
+  };
+
+  const renderLanguageButtons = () => {
+    languageWindow.innerHTML = "";
+    Object.keys(LANGUAGE_CONFIG).forEach(languageCode => {
+      const config = LANGUAGE_CONFIG[languageCode];
+      const btn = document.createElement("button");
+      btn.textContent = config.label + (currentLanguage === languageCode ? " ✓" : "");
+      btn.style.display = "block";
+      btn.style.width = "100%";
+      btn.style.marginBottom = "6px";
+      btn.onclick = () => {
+        if (currentLanguage === languageCode) return;
+        loadLessonsForLanguage(languageCode);
+        languageWindow.style.display = "none";
+        themesWindow.style.display = "none";
+        hideAllPages();
+        document.getElementById("page0").classList.remove("hidden");
+      };
+      languageWindow.appendChild(btn);
+    });
+  };
+  renderLanguageButtons();
+  languageBtn.onclick = () => {
+    languageWindow.style.display = languageWindow.style.display === "block" ? "none" : "block";
+    if (languageWindow.style.display === "block") themesWindow.style.display = "none";
+  };
+
+  settingsWindow.appendChild(settingsSubmenu);
 
   settingsLi.appendChild(settingsWindow);
   menu.appendChild(settingsLi);
@@ -314,6 +480,11 @@ function addSettingsMenu() {
     const isShown = settingsWindow.style.display === "block";
     document.querySelectorAll("#menuDropdown > li > div").forEach(div => div.style.display = "none");
     settingsWindow.style.display = isShown ? "none" : "block";
+    if (!isShown) {
+      syncResetButtonLabel();
+      renderThemeButtons();
+      renderLanguageButtons();
+    }
   });
 }
 
@@ -323,7 +494,7 @@ function startLesson(level, lessonKey) {
   if (!lesson) return;
 
   currentLesson = { level, lessonKey };
-  words = lesson.english || [];
+  words = getWordsFromLesson(lesson);
   transcriptions = lesson.transcriptions || [];
   translations = lesson.translated || [];
   examples = pullExamplesFromJSON ? (lesson.example || []) : words.map(() => "");
@@ -345,9 +516,10 @@ function startDictionaryLesson() {
     for (const levelKey in lessonsDB) {
       for (const lessonKey in lessonsDB[levelKey]) {
         const lesson = lessonsDB[levelKey][lessonKey];
-        const idx = lesson.english.indexOf(word);
+        const lessonWords = getWordsFromLesson(lesson);
+        const idx = lessonWords.indexOf(word);
         if (idx !== -1) {
-          foundWords.push(lesson.english[idx]);
+          foundWords.push(lessonWords[idx]);
           foundTrans.push(lesson.transcriptions[idx] || "");
           foundTransl.push(lesson.translated[idx] || "(перевод)");
           foundExamples.push(lesson.example ? lesson.example[idx] : "");
