@@ -133,12 +133,18 @@ let pullExamplesFromJSON = true;
 let lastSpokenWord = "";
 let slowMode = false;
 let currentTheme = "theme-default";
+let currentLearningLanguage = "english";
 
 /* === LocalStorage: словарь и завершённые уроки === */
 const LOCAL_STORAGE_KEY = "myDictionary";
-const FINISHED_LESSONS_KEY = "finishedLessons";
+const FINISHED_LESSONS_KEY_PREFIX = "finishedLessons";
 const THEME_STORAGE_KEY = "selectedTheme";
 const EXAMPLE_MODE_STORAGE_KEY = "pullExamplesFromJSON";
+const LEARNING_LANGUAGE_STORAGE_KEY = "learningLanguage";
+const LESSONS_FILES = {
+  english: "lessons.json",
+  french: "french_lessons.json"
+};
 
 const THEMES = [
   { id: "theme-default", label: "Fresh Green" },
@@ -156,14 +162,18 @@ function saveMyDictionary(dict) {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dict));
 }
 function getFinishedLessons() {
-  const finished = localStorage.getItem(FINISHED_LESSONS_KEY);
+  const finished = localStorage.getItem(getFinishedLessonsStorageKey());
   return finished ? JSON.parse(finished) : {};
 }
 function saveFinishedLesson(level, lessonKey) {
   const finished = getFinishedLessons();
   if (!finished[level]) finished[level] = [];
   if (!finished[level].includes(lessonKey)) finished[level].push(lessonKey);
-  localStorage.setItem(FINISHED_LESSONS_KEY, JSON.stringify(finished));
+  localStorage.setItem(getFinishedLessonsStorageKey(), JSON.stringify(finished));
+}
+
+function getFinishedLessonsStorageKey() {
+  return `${FINISHED_LESSONS_KEY_PREFIX}_${currentLearningLanguage}`;
 }
 
 function getPullExamplesFlag() {
@@ -191,6 +201,8 @@ function loadSavedPreferences() {
   const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || "theme-default";
   const knownTheme = THEMES.some(t => t.id === savedTheme) ? savedTheme : "theme-default";
   applyTheme(knownTheme);
+  const savedLanguage = localStorage.getItem(LEARNING_LANGUAGE_STORAGE_KEY) || "english";
+  currentLearningLanguage = LESSONS_FILES[savedLanguage] ? savedLanguage : "english";
 }
 
 /* === Проверка словаря === */
@@ -213,7 +225,7 @@ function toggleDictionary(word, button) {
 function speakWord(word) {
   if (!word) return;
   const utter = new SpeechSynthesisUtterance(word);
-  utter.lang = "en-US";
+  utter.lang = currentLearningLanguage === "french" ? "fr-FR" : "en-US";
   utter.rate = slowMode ? 0.7 : 1.0;
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
@@ -222,16 +234,26 @@ function speakWord(word) {
 }
 
 /* === Загружаем JSON с уроками === */
-fetch("lessons.json")
-  .then(res => res.json())
-  .then(data => {
-    lessonsDB = data;
+async function loadLessonsForLanguage(language) {
+  const selectedLanguage = LESSONS_FILES[language] ? language : "english";
+  const fileName = LESSONS_FILES[selectedLanguage];
+  try {
+    const res = await fetch(fileName);
+    lessonsDB = await res.json();
+    currentLearningLanguage = selectedLanguage;
+    localStorage.setItem(LEARNING_LANGUAGE_STORAGE_KEY, selectedLanguage);
+    currentLesson = null;
+    currentLessonElement = null;
     generateLevelsMenu();
     addSettingsMenu();
-  })
-  .catch(err => console.error("Ошибка загрузки JSON:", err));
+  } catch (err) {
+    console.error("Ошибка загрузки JSON:", err);
+    alert("Не удалось загрузить уроки для выбранного языка.");
+  }
+}
 
 loadSavedPreferences();
+loadLessonsForLanguage(currentLearningLanguage);
 
 /* === Меню === */
 document.getElementById("menuBtn").addEventListener("click", () => {
@@ -243,6 +265,52 @@ function generateLevelsMenu() {
   const menu = document.getElementById("menuDropdown");
   menu.innerHTML = "";
   const finished = getFinishedLessons();
+
+  const languageLi = document.createElement("li");
+  languageLi.classList.add("menu__nav-item");
+  const languageBtn = document.createElement("button");
+  languageBtn.textContent = `Язык изучения: ${currentLearningLanguage === "french" ? "Французский" : "Английский"}`;
+  languageBtn.classList.add("level-btn");
+  languageLi.appendChild(languageBtn);
+
+  const languageWindow = document.createElement("div");
+  languageWindow.style.display = "none";
+  languageWindow.style.position = "relative";
+  languageWindow.style.zIndex = "10";
+  languageWindow.style.padding = "10px";
+  languageWindow.style.marginTop = "5px";
+  languageWindow.style.backgroundColor = "#3a3a3a";
+  languageWindow.style.borderRadius = "5px";
+
+  const englishBtn = document.createElement("button");
+  englishBtn.textContent = currentLearningLanguage === "english" ? "Английский ✓" : "Английский";
+  englishBtn.style.display = "block";
+  englishBtn.style.width = "100%";
+  englishBtn.style.marginBottom = "6px";
+  englishBtn.onclick = async () => {
+    if (currentLearningLanguage === "english") return;
+    await loadLessonsForLanguage("english");
+  };
+
+  const frenchBtn = document.createElement("button");
+  frenchBtn.textContent = currentLearningLanguage === "french" ? "Французский ✓" : "Французский";
+  frenchBtn.style.display = "block";
+  frenchBtn.style.width = "100%";
+  frenchBtn.onclick = async () => {
+    if (currentLearningLanguage === "french") return;
+    await loadLessonsForLanguage("french");
+  };
+
+  languageWindow.appendChild(englishBtn);
+  languageWindow.appendChild(frenchBtn);
+  languageLi.appendChild(languageWindow);
+  menu.appendChild(languageLi);
+
+  languageBtn.addEventListener("click", () => {
+    const isShown = languageWindow.style.display === "block";
+    document.querySelectorAll("#menuDropdown > li > div").forEach(div => div.style.display = "none");
+    languageWindow.style.display = isShown ? "none" : "block";
+  });
 
   Object.keys(lessonsDB).forEach(level => {
     const li = document.createElement("li");
@@ -410,11 +478,13 @@ function addSettingsMenu() {
 function startLesson(level, lessonKey) {
   const lesson = lessonsDB[level][lessonKey];
   if (!lesson) return;
+  const baseWords = lesson.english || lesson.french || [];
+  const fallbackTranslations = lesson.translated || lesson.english || lesson.french || [];
 
   currentLesson = { level, lessonKey };
-  words = lesson.english || [];
+  words = baseWords;
   transcriptions = lesson.transcriptions || [];
-  translations = lesson.translated || [];
+  translations = fallbackTranslations;
   examples = pullExamplesFromJSON ? (lesson.example || []) : words.map(() => "");
   currentPhase = 3;
   currentIndex = 0;
@@ -434,11 +504,13 @@ function startDictionaryLesson() {
     for (const levelKey in lessonsDB) {
       for (const lessonKey in lessonsDB[levelKey]) {
         const lesson = lessonsDB[levelKey][lessonKey];
-        const idx = lesson.english.indexOf(word);
+        const lessonWords = lesson.english || lesson.french || [];
+        const idx = lessonWords.indexOf(word);
         if (idx !== -1) {
-          foundWords.push(lesson.english[idx]);
+          foundWords.push(lessonWords[idx]);
           foundTrans.push(lesson.transcriptions[idx] || "");
-          foundTransl.push(lesson.translated[idx] || "(перевод)");
+          const lessonTranslations = lesson.translated || lesson.english || lesson.french || [];
+          foundTransl.push(lessonTranslations[idx] || "(перевод)");
           foundExamples.push(lesson.example ? lesson.example[idx] : "");
           found = true;
           break;
