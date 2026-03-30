@@ -134,6 +134,8 @@ let lastSpokenWord = "";
 let slowMode = false;
 let currentTheme = "theme-default";
 let currentLearningLanguage = "english";
+let historyNavigationEnabled = false;
+let suppressPopStateHandler = false;
 
 /* === LocalStorage: словарь и завершённые уроки === */
 const LOCAL_STORAGE_KEY = "myDictionary";
@@ -142,6 +144,7 @@ const FINISHED_LESSONS_KEY_PREFIX = "finishedLessons";
 const THEME_STORAGE_KEY = "selectedTheme";
 const EXAMPLE_MODE_STORAGE_KEY = "pullExamplesFromJSON";
 const LEARNING_LANGUAGE_STORAGE_KEY = "learningLanguage";
+const LEARNING_PROGRESS_STORAGE_KEY = "learningProgressState";
 const LESSONS_FILES = {
   english: "lessons.json",
   french: "french_lessons.json"
@@ -216,6 +219,110 @@ function loadSavedPreferences() {
   currentLearningLanguage = LESSONS_FILES[savedLanguage] ? savedLanguage : "english";
 }
 
+function shuffleArray(items) {
+  const arr = [...items];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function getCurrentVisiblePageId() {
+  const pageIds = ["page0","page1_5","page2","page3","page4","page5","page6","finishPage"];
+  for (const id of pageIds) {
+    const el = document.getElementById(id);
+    if (el && !el.classList.contains("hidden")) return id;
+  }
+  return "page0";
+}
+
+function saveLearningProgress() {
+  const payload = {
+    words,
+    transcriptions,
+    translations,
+    examples,
+    currentPhase,
+    currentIndex,
+    phaseQueue,
+    dictationQueue,
+    dictationWaiting,
+    currentLesson,
+    visiblePage: getCurrentVisiblePageId()
+  };
+  localStorage.setItem(LEARNING_PROGRESS_STORAGE_KEY, JSON.stringify(payload));
+}
+
+function clearLearningProgress() {
+  localStorage.removeItem(LEARNING_PROGRESS_STORAGE_KEY);
+}
+
+function updateHistoryStage(stage, replace = false) {
+  if (!historyNavigationEnabled || suppressPopStateHandler) return;
+  const state = { stage };
+  if (replace) history.replaceState(state, "", `#${stage}`);
+  else history.pushState(state, "", `#${stage}`);
+}
+
+function restoreLearningProgress() {
+  const rawState = localStorage.getItem(LEARNING_PROGRESS_STORAGE_KEY);
+  if (!rawState) return;
+
+  try {
+    const state = JSON.parse(rawState);
+    if (!Array.isArray(state.words) || state.words.length === 0) return;
+
+    words = state.words;
+    transcriptions = Array.isArray(state.transcriptions) ? state.transcriptions : words.map(() => "");
+    translations = Array.isArray(state.translations) ? state.translations : words.map(() => "");
+    examples = Array.isArray(state.examples) ? state.examples : words.map(() => "");
+    currentPhase = Number.isInteger(state.currentPhase) ? state.currentPhase : 3;
+    currentIndex = Number.isInteger(state.currentIndex) ? state.currentIndex : 0;
+    phaseQueue = Array.isArray(state.phaseQueue) ? state.phaseQueue : words.map((_, i) => i);
+    dictationQueue = Array.isArray(state.dictationQueue) ? state.dictationQueue : words.map((_, i) => i);
+    dictationWaiting = Boolean(state.dictationWaiting);
+    currentLesson = state.currentLesson || null;
+
+    if (currentPhase >= 3 && currentPhase <= 6) {
+      hideAllPages();
+      if (currentPhase === 3) showNextCard(null);
+      else if (currentPhase === 4) showPhase2();
+      else if (currentPhase === 5) showPhase3();
+      else if (currentPhase === 6) showNextDictationWord();
+    }
+  } catch (err) {
+    console.error("Не удалось восстановить прогресс:", err);
+    clearLearningProgress();
+  }
+}
+
+function initHistoryNavigation() {
+  historyNavigationEnabled = true;
+  updateHistoryStage(getCurrentVisiblePageId(), true);
+
+  window.addEventListener("popstate", () => {
+    if (suppressPopStateHandler) return;
+    suppressPopStateHandler = true;
+    const visiblePage = getCurrentVisiblePageId();
+
+    if (visiblePage === "page6") startPhase(5);
+    else if (visiblePage === "page5") startPhase(4);
+    else if (visiblePage === "page4") startPhase(3);
+    else if (visiblePage === "page3") backToMenu();
+    else if (visiblePage === "page2") {
+      hideAllPages();
+      document.getElementById("page1_5").classList.remove("hidden");
+      saveLearningProgress();
+    } else if (visiblePage === "page1_5") {
+      hideAllPages();
+      document.getElementById("page0").classList.remove("hidden");
+      saveLearningProgress();
+    }
+    suppressPopStateHandler = false;
+  });
+}
+
 /* === Проверка словаря === */
 function isInDictionary(word) {
   return getMyDictionary().includes(word);
@@ -265,6 +372,9 @@ async function loadLessonsForLanguage(language) {
 
 loadSavedPreferences();
 loadLessonsForLanguage(currentLearningLanguage);
+restoreLearningProgress();
+initHistoryNavigation();
+window.addEventListener("beforeunload", saveLearningProgress);
 
 /* === Меню === */
 document.getElementById("menuBtn").addEventListener("click", () => {
@@ -535,6 +645,7 @@ function startLesson(level, lessonKey) {
   currentIndex = 0;
   wrongQueue = [];
   startPhase(currentPhase);
+  saveLearningProgress();
   document.getElementById("menuDropdown").classList.remove("show");
 }
 
@@ -579,6 +690,7 @@ let foundWords = [], foundTrans = [], foundTransl = [], foundExamples = [];
   wrongQueue = [];
   hideAllPages();
   startPhase(currentPhase);
+  saveLearningProgress();
   document.getElementById("menuDropdown").classList.remove("show");
 }
 function createCustomDictionaryLesson() {
@@ -617,6 +729,7 @@ function startCustomLesson(lessonId) {
   wrongQueue = [];
   hideAllPages();
   startPhase(currentPhase);
+  saveLearningProgress();
   document.getElementById("menuDropdown").classList.remove("show");
 }
 /* === Самостоятельный ввод слов === */
@@ -629,6 +742,8 @@ function goToTranscription() {
   examples = words.map(() => "");
   hideAllPages();
   document.getElementById("page1_5").classList.remove("hidden");
+  updateHistoryStage("page1_5");
+  saveLearningProgress();
 }
 
 function skipTranscription() {
@@ -644,6 +759,8 @@ function goToTranslations() {
   } else transcriptions = words.map(() => "");
   hideAllPages();
   document.getElementById("page2").classList.remove("hidden");
+  updateHistoryStage("page2");
+  saveLearningProgress();
 }
 
 function startSelfLearning() {
@@ -658,6 +775,7 @@ currentIndex = 0;
   wrongQueue = [];
   hideAllPages();
   startPhase(currentPhase);
+  saveLearningProgress();
 }
 
 /* === Управление страницами === */
@@ -675,12 +793,18 @@ function startPhase(phase) {
   currentIndex = 0;
   wrongQueue = [];
   phaseQueue = words.map((_, i) => i);
+  if (phase === 5) {
+    phaseQueue = shuffleArray(phaseQueue);
+  }
   updateProgress();
+  const phaseToPage = { 3: "page3", 4: "page4", 5: "page5", 6: "page6" };
+  if (phaseToPage[phase]) updateHistoryStage(phaseToPage[phase]);
 
   if (phase === 3) showNextCard(null);
   else if (phase === 4) showPhase2();
   else if (phase === 5) showPhase3();
   else if (phase === 6) startDictationPhase();
+  saveLearningProgress();
 }
 
 /* === Прогресс (единая простая версия) === */
@@ -723,6 +847,7 @@ function showNextCard(correct = true) {
   document.getElementById("addToDictionaryBtnDynamic").onclick = () => toggleDictionary(word, document.getElementById("addToDictionaryBtnDynamic"));
 
   updateProgress();
+  saveLearningProgress();
 }
 
 /* === Фаза 4 === */
@@ -766,6 +891,7 @@ function markAnswer(correct) {
   }
   nextIndex();
   showPhase2();
+  saveLearningProgress();
 }
 
 /* === Фаза 5 === */
@@ -809,6 +935,7 @@ function markAnswer3(correct) {
   }
   nextIndex();
   showPhase3();
+  saveLearningProgress();
 }
 
 /* === Общие функции для перехода по списку === */
@@ -828,6 +955,7 @@ function goToNextPage() {
   else if (currentPhase === 4) startPhase(5);
   else if (currentPhase === 5) startPhase(6);
   else finishLesson();
+  saveLearningProgress();
 }
 
 function repeatPhase() {
@@ -840,12 +968,16 @@ function finishLesson() {
   document.getElementById("finishPage").classList.remove("hidden");
   if (currentLesson) saveFinishedLesson(currentLesson.level, currentLesson.lessonKey);
   generateLevelsMenu();
+  updateHistoryStage("finishPage");
+  clearLearningProgress();
 }
 
 function backToMenu() {
   hideAllPages();
   document.getElementById("page0").classList.remove("hidden");
   document.getElementById("menuDropdown").classList.add("show");
+  updateHistoryStage("page0");
+  saveLearningProgress();
 }
 
 /* ===== Исправленный блок: Диктант (Фаза 6) ===== */
@@ -861,10 +993,11 @@ function backToMenu() {
 */
 
 function startDictationPhase() {
-  dictationQueue = words.map((_, i) => i);
+  dictationQueue = shuffleArray(words.map((_, i) => i));
   dictationWaiting = false;
   currentIndex = 0;
   updateProgress();
+  saveLearningProgress();
   showNextDictationWord();
 }
 
@@ -964,12 +1097,14 @@ function checkDictation() {
     if (checkBtn) checkBtn.disabled = true;
     if (nextBtn) nextBtn.disabled = false;
   }
+  saveLearningProgress();
 }
 
 function nextDictationAfterError() {
   if (!dictationWaiting) return;
   dictationWaiting = false;
   showNextDictationWord();
+  saveLearningProgress();
 }
 
 /* === Горячие клавиши (Enter/Space) === */
