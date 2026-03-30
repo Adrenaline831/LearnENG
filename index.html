@@ -61,7 +61,7 @@
   </div>
 
   <div id="page4" class="hidden">
-<h2>Фаза 2: Перевод → Оригинал</h2>
+<h2>Фаза 2: Оригинал → Перевод</h2>
 <p id="phase2-translation">
       <span id="phase2Word"></span>
       <button id="addToDictionaryBtn2" class="dictionary-btn">☆</button>
@@ -78,7 +78,7 @@
   </div>
 
   <div id="page5" class="hidden">
-    <h2>Фаза 3: Оригинал → Перевод</h2>
+    <h2>Фаза 3: Перевод → Оригинал</h2>
 <p id="phase3-original">
       <span id="phase3Word"></span>
       <button id="addToDictionaryBtn3" class="dictionary-btn">☆</button>
@@ -137,6 +137,7 @@ let currentLearningLanguage = "english";
 
 /* === LocalStorage: словарь и завершённые уроки === */
 const LOCAL_STORAGE_KEY = "myDictionary";
+const CUSTOM_DICTIONARY_STORAGE_KEY = "customDictionaryLessons";
 const FINISHED_LESSONS_KEY_PREFIX = "finishedLessons";
 const THEME_STORAGE_KEY = "selectedTheme";
 const EXAMPLE_MODE_STORAGE_KEY = "pullExamplesFromJSON";
@@ -160,6 +161,13 @@ function getMyDictionary() {
 }
 function saveMyDictionary(dict) {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dict));
+}
+function getCustomDictionaryLessons() {
+  const customLessons = localStorage.getItem(CUSTOM_DICTIONARY_STORAGE_KEY);
+  return customLessons ? JSON.parse(customLessons) : [];
+}
+function saveCustomDictionaryLessons(customLessons) {
+  localStorage.setItem(CUSTOM_DICTIONARY_STORAGE_KEY, JSON.stringify(customLessons));
 }
 function getFinishedLessons() {
   const finished = localStorage.getItem(getFinishedLessonsStorageKey());
@@ -364,10 +372,44 @@ function generateLevelsMenu() {
     });
   });
 
-  const dictBtn = document.createElement("li");
-  dictBtn.innerHTML = `<button id="myDictionaryBtn">★ Мой словарь</button>`;
-  menu.appendChild(dictBtn);
-  document.getElementById("myDictionaryBtn").addEventListener("click", startDictionaryLesson);
+  const favoritesBtn = document.createElement("li");
+  favoritesBtn.innerHTML = `<button id="favoritesDictionaryBtn">★ Избранные слова</button>`;
+  menu.appendChild(favoritesBtn);
+  document.getElementById("favoritesDictionaryBtn").addEventListener("click", startDictionaryLesson);
+
+  const customDictLi = document.createElement("li");
+  customDictLi.classList.add("menu__nav-item");
+  const customDictBtn = document.createElement("button");
+  customDictBtn.textContent = "📝 Мой словарь";
+  customDictBtn.classList.add("level-btn");
+  customDictLi.appendChild(customDictBtn);
+
+  const customDictSubmenu = document.createElement("ul");
+  customDictSubmenu.classList.add("submenu");
+  customDictSubmenu.style.display = "none";
+
+  const customLessons = getCustomDictionaryLessons();
+  if (customLessons.length === 0) {
+    const emptyLi = document.createElement("li");
+    emptyLi.textContent = "Пока пусто";
+    customDictSubmenu.appendChild(emptyLi);
+  } else {
+    customLessons.forEach(lesson => {
+      const item = document.createElement("li");
+      item.style.cursor = "pointer";
+      item.textContent = `${lesson.title} — ${lesson.date}`;
+      item.onclick = () => startCustomLesson(lesson.id);
+      customDictSubmenu.appendChild(item);
+    });
+  }
+
+  customDictLi.appendChild(customDictSubmenu);
+  menu.appendChild(customDictLi);
+  customDictBtn.addEventListener("click", () => {
+    const isShown = customDictSubmenu.style.display === "block";
+    document.querySelectorAll(".submenu").forEach(sub => sub.style.display = "none");
+    customDictSubmenu.style.display = isShown ? "none" : "block";
+  });
 }
 /* === Настройки (единая версия) === */
 function addSettingsMenu() {
@@ -535,6 +577,44 @@ let foundWords = [], foundTrans = [], foundTransl = [], foundExamples = [];
   startPhase(currentPhase);
   document.getElementById("menuDropdown").classList.remove("show");
 }
+function createCustomDictionaryLesson() {
+  const now = new Date();
+  const date = now.toLocaleDateString("ru-RU");
+  const title = words[0] || "Новый список";
+  const customLessons = getCustomDictionaryLessons();
+  const newLesson = {
+    id: `${Date.now()}`,
+    title,
+    date,
+    words: [...words],
+    transcriptions: [...transcriptions],
+    translations: [...translations],
+    examples: [...examples]
+  };
+  customLessons.unshift(newLesson);
+  saveCustomDictionaryLessons(customLessons);
+}
+
+function startCustomLesson(lessonId) {
+  const customLessons = getCustomDictionaryLessons();
+  const lesson = customLessons.find(item => item.id === lessonId);
+  if (!lesson) {
+    alert("Не удалось открыть выбранный урок.");
+    return;
+  }
+
+  currentLesson = null;
+  words = lesson.words || [];
+  transcriptions = lesson.transcriptions || words.map(() => "");
+  translations = lesson.translations || words.map(() => "");
+  examples = lesson.examples || words.map(() => "");
+  currentPhase = 3;
+  currentIndex = 0;
+  wrongQueue = [];
+  hideAllPages();
+  startPhase(currentPhase);
+  document.getElementById("menuDropdown").classList.remove("show");
+}
 /* === Самостоятельный ввод слов === */
 function goToTranscription() {
   const rawWords = document.getElementById("englishWords").value.trim();
@@ -568,6 +648,7 @@ function startSelfLearning() {
   translations = rawTransl.split("\n").map(s => s.trim());
   if (translations.length !== words.length) { alert("Количество переводов должно совпадать с количеством слов"); return; }
   examples = words.map(() => "");
+  createCustomDictionaryLesson();
   currentPhase = 3;
 currentIndex = 0;
   wrongQueue = [];
@@ -646,14 +727,21 @@ function showPhase2() {
   document.getElementById("page4").classList.remove("hidden");
   document.getElementById("answerSection").classList.add("hidden");
   const i = getCurrentIndex();
-  document.getElementById("phase2-translation").textContent = translations[i] || "";
+  const word = words[i] || "";
+  document.getElementById("phase2-translation").innerHTML =
+    `<strong>${word}</strong>
+     <button id="addToDictionaryBtnPhase2" class="dictionary-btn">${isInDictionary(word) ? "★" : "☆"}</button>`;
   document.getElementById("phase2-example").textContent = examples[i] || "";
+  const phase2DictionaryBtn = document.getElementById("addToDictionaryBtnPhase2");
+  if (phase2DictionaryBtn) {
+    phase2DictionaryBtn.onclick = () => toggleDictionary(word, phase2DictionaryBtn);
+  }
 }
 
 function showAnswer() {
   const i = getCurrentIndex();
   const answerContainer = document.getElementById("answerSection");
-  document.getElementById("phase2-answer").textContent = `${words[i] || ""} [${transcriptions[i] || ""}]`;
+  document.getElementById("phase2-answer").textContent = `${translations[i] || ""}`;
  answerContainer.classList.remove("hidden");
 
   let btn = document.getElementById("speakPhase4Btn");
@@ -681,14 +769,21 @@ function showPhase3() {
   document.getElementById("page5").classList.remove("hidden");
   document.getElementById("answerSection3").classList.add("hidden");
   const i = getCurrentIndex();
-  document.getElementById("phase3-original").textContent = words[i] || "";
+  const word = words[i] || "";
+  document.getElementById("phase3-original").innerHTML =
+    `<strong>${translations[i] || ""}</strong>
+     <button id="addToDictionaryBtnPhase3" class="dictionary-btn">${isInDictionary(word) ? "★" : "☆"}</button>`;
   document.getElementById("phase3-example").textContent = examples[i] || "";
+  const phase3DictionaryBtn = document.getElementById("addToDictionaryBtnPhase3");
+  if (phase3DictionaryBtn) {
+    phase3DictionaryBtn.onclick = () => toggleDictionary(word, phase3DictionaryBtn);
+  }
 }
 
 function showAnswer3() {
   const i = getCurrentIndex();
   const answerContainer = document.getElementById("answerSection3");
-  document.getElementById("phase3-answer").textContent = translations[i] || "";
+  document.getElementById("phase3-answer").textContent = `${words[i] || ""} [${transcriptions[i] || ""}]`;
  answerContainer.classList.remove("hidden");
 
   let btn = document.getElementById("speakPhase5Btn");
@@ -782,8 +877,15 @@ function showNextDictationWord() {
   if (page) page.classList.remove("hidden");
 
   // показываем перевод и пример
-  document.getElementById("dictation-translation").textContent = translations[currentIndex] || "";
+  const word = words[currentIndex] || "";
+  document.getElementById("dictation-translation").innerHTML =
+    `<strong>${translations[currentIndex] || ""}</strong>
+     <button id="addToDictionaryBtnDictation" class="dictionary-btn">${isInDictionary(word) ? "★" : "☆"}</button>`;
  document.getElementById("dictation-example").textContent = examples[currentIndex] || "";
+  const dictationDictionaryBtn = document.getElementById("addToDictionaryBtnDictation");
+  if (dictationDictionaryBtn) {
+    dictationDictionaryBtn.onclick = () => toggleDictionary(word, dictationDictionaryBtn);
+  }
 
   // подготавливаем поле ввода и фидбек
   const inputEl = document.getElementById("dictation-input");
