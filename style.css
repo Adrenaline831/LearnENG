@@ -71,6 +71,114 @@ body.theme-second {
   --shadow-button: 0 4px 0 rgba(74, 84, 37, 0.95);
 }
 
+/* Тема 2.5: классическая тёмная */
+body.theme-classic-dark {
+  --bg-color: #111317;
+  --bg-gradient: radial-gradient(circle at top, #1a1f28 0%, #141922 45%, #0f131a 100%);
+  --surface-color: #1b2230;
+  --surface-muted: #222b3d;
+  --text-color: #e8edf7;
+  --accent-color: #5a88ff;
+  --accent-strong: #4872de;
+  --accent-soft: #2c3b57;
+  --menu-bg: #1b2230;
+  --menu-hover: #28324a;
+  --submenu-bg: #1b2230;
+  --submenu-hover: #28324a;
+  --button-bg: #5a88ff;
+  --button-hover: #4872de;
+  --button-text: #ffffff;
+  --button-secondary-bg: #253149;
+  --button-secondary-hover: #32405c;
+  --button-secondary-text: #e8edf7;
+  --input-bg: #253149;
+  --input-border: #3d4d6f;
+  --input-text: #e8edf7;
+  --placeholder-color: #9eb0cf;
+  --progress-bg: #2f3b57;
+  --progress-bar: linear-gradient(90deg, #5a88ff 0%, #7ca7ff 100%);
+  --progress-text: #f6f9ff;
+  --dictionary-color: #ffd66e;
+  --example-color: #b8c5de;
+  --finish-color: #8db0ff;
+  --strong-color: #8db0ff;
+  --danger-color: #ff6f8e;
+  --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.42);
+  --shadow-button: 0 4px 0 rgba(46, 74, 138, 0.95);
+}
+
+/* Тема 2.6: северное сияние */
+body.theme-aurora {
+  --bg-color: #0d1a1d;
+  --bg-gradient: radial-gradient(circle at top, #153035 0%, #102429 48%, #0b1619 100%);
+  --surface-color: #173036;
+  --surface-muted: #1f3b42;
+  --text-color: #e8fffb;
+  --accent-color: #26d3a8;
+  --accent-strong: #1ea887;
+  --accent-soft: #245047;
+  --menu-bg: #173036;
+  --menu-hover: #22444d;
+  --submenu-bg: #173036;
+  --submenu-hover: #22444d;
+  --button-bg: #26d3a8;
+  --button-hover: #1ea887;
+  --button-text: #06211d;
+  --button-secondary-bg: #245047;
+  --button-secondary-hover: #2f6056;
+  --button-secondary-text: #e8fffb;
+  --input-bg: #245047;
+  --input-border: #3f7b73;
+  --input-text: #e8fffb;
+  --placeholder-color: #9fd4c9;
+  --progress-bg: #2b5e55;
+  --progress-bar: linear-gradient(90deg, #26d3a8 0%, #6ef1cf 100%);
+  --progress-text: #06211d;
+  --dictionary-color: #ffd56b;
+  --example-color: #b8e5dc;
+  --finish-color: #78f5d6;
+  --strong-color: #78f5d6;
+  --danger-color: #ff7d90;
+  --shadow-soft: 0 10px 24px rgba(2, 15, 17, 0.46);
+  --shadow-button: 0 4px 0 rgba(16, 111, 89, 0.95);
+}
+
+/* Тема 2.7: закат */
+body.theme-sunset {
+  --bg-color: #26171c;
+  --bg-gradient: radial-gradient(circle at top, #4a2a2f 0%, #3a2228 45%, #241519 100%);
+  --surface-color: #3a242a;
+  --surface-muted: #472b33;
+  --text-color: #fff0eb;
+  --accent-color: #ff8a5c;
+  --accent-strong: #e26945;
+  --accent-soft: #6a3a3f;
+  --menu-bg: #3a242a;
+  --menu-hover: #513039;
+  --submenu-bg: #3a242a;
+  --submenu-hover: #513039;
+  --button-bg: #ff8a5c;
+  --button-hover: #e26945;
+  --button-text: #fff6f2;
+  --button-secondary-bg: #56323a;
+  --button-secondary-hover: #68404a;
+  --button-secondary-text: #fff0eb;
+  --input-bg: #56323a;
+  --input-border: #8f565f;
+  --input-text: #fff0eb;
+  --placeholder-color: #deb2ab;
+  --progress-bg: #6f4046;
+  --progress-bar: linear-gradient(90deg, #ff8a5c 0%, #ffb17f 100%);
+  --progress-text: #fff7f3;
+  --dictionary-color: #ffd166;
+  --example-color: #ffd9ce;
+  --finish-color: #ffb17f;
+  --strong-color: #ffb17f;
+  --danger-color: #ff6a7b;
+  --shadow-soft: 0 10px 24px rgba(19, 8, 10, 0.5);
+  --shadow-button: 0 4px 0 rgba(146, 73, 47, 0.95);
+}
+
 /* Тема 3: тёмно-красная */
 body.theme-darkred {
   --bg-color: #161313;
@@ -443,19 +551,32 @@ input::placeholder {
 
 /* === СЛОВАРЬ === */
 .dictionary-btn {
-  background: transparent;
+  background: transparent !important;
   border: none;
   color: var(--dictionary-color);
-  font-size: 1.45rem;
+  font-size: 1.15rem;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: transform 0.2s ease, color 0.2s ease;
   box-shadow: none;
   margin-left: 6px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  padding: 0;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .dictionary-btn:hover {
-  transform: scale(1.12);
-  filter: brightness(1.05);
+  transform: scale(1.08);
+  filter: none;
+}
+
+.dictionary-btn:active {
+  transform: scale(0.96);
+  box-shadow: none;
 }
 
 .dictionary-btn.active {
@@ -557,7 +678,12 @@ input::placeholder {
   }
 
   .dictionary-btn {
-    font-size: 1.25rem;
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    padding: 0;
+    margin-right: 0;
+    font-size: 1.05rem;
   }
 
   #finishPage h2 {
