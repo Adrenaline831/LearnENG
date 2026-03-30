@@ -179,6 +179,115 @@ body.theme-lavender {
   --shadow-button: 0 4px 0 rgba(116, 50, 152, 0.95);
 }
 
+
+/* Тема 6: классическая тёмная */
+body.theme-classic-dark {
+  --bg-color: #121212;
+  --bg-gradient: radial-gradient(circle at top, #202020 0%, #161616 45%, #0f0f0f 100%);
+  --surface-color: #1f1f1f;
+  --surface-muted: #282828;
+  --text-color: #f1f1f1;
+  --accent-color: #6ea8fe;
+  --accent-strong: #4f8eea;
+  --accent-soft: #273549;
+  --menu-bg: #1f1f1f;
+  --menu-hover: #2c2c2c;
+  --submenu-bg: #1f1f1f;
+  --submenu-hover: #2c2c2c;
+  --button-bg: #6ea8fe;
+  --button-hover: #4f8eea;
+  --button-text: #ffffff;
+  --button-secondary-bg: #2a2a2a;
+  --button-secondary-hover: #353535;
+  --button-secondary-text: #f1f1f1;
+  --input-bg: #2a2a2a;
+  --input-border: #3f3f3f;
+  --input-text: #f1f1f1;
+  --placeholder-color: #a0a0a0;
+  --progress-bg: #353535;
+  --progress-bar: linear-gradient(90deg, #6ea8fe 0%, #8fc0ff 100%);
+  --progress-text: #ffffff;
+  --dictionary-color: #ffcf66;
+  --example-color: #c4c4c4;
+  --finish-color: #8fc0ff;
+  --strong-color: #8fc0ff;
+  --danger-color: #ff7a7a;
+  --shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.45);
+  --shadow-button: 0 4px 0 rgba(45, 79, 130, 0.95);
+}
+
+/* Тема 7: тёплый закат */
+body.theme-sunset {
+  --bg-color: #fff4ee;
+  --bg-gradient: radial-gradient(circle at top, #ffe6d4 0%, #ffd9c1 45%, #ffcdb4 100%);
+  --surface-color: #fff8f2;
+  --surface-muted: #ffeede;
+  --text-color: #4a2a24;
+  --accent-color: #ff7b54;
+  --accent-strong: #e1603b;
+  --accent-soft: #ffe0d2;
+  --menu-bg: #fff8f2;
+  --menu-hover: #ffe6d9;
+  --submenu-bg: #fff8f2;
+  --submenu-hover: #ffe6d9;
+  --button-bg: #ff7b54;
+  --button-hover: #e1603b;
+  --button-text: #ffffff;
+  --button-secondary-bg: #fff6ee;
+  --button-secondary-hover: #ffe5d6;
+  --button-secondary-text: #4a2a24;
+  --input-bg: #fffdfb;
+  --input-border: #f0c8b2;
+  --input-text: #4a2a24;
+  --placeholder-color: #a96d57;
+  --progress-bg: #f3d2c0;
+  --progress-bar: linear-gradient(90deg, #ff7b54 0%, #ffaf72 100%);
+  --progress-text: #5a2316;
+  --dictionary-color: #db8e00;
+  --example-color: #79534b;
+  --finish-color: #e1603b;
+  --strong-color: #d4512a;
+  --danger-color: #d14545;
+  --shadow-soft: 0 10px 24px rgba(121, 54, 35, 0.2);
+  --shadow-button: 0 4px 0 rgba(155, 66, 39, 0.95);
+}
+
+/* Тема 8: кибер-мята */
+body.theme-cybermint {
+  --bg-color: #eafff9;
+  --bg-gradient: radial-gradient(circle at top, #e8fff8 0%, #d5fff2 45%, #c9f9ec 100%);
+  --surface-color: #f7fffd;
+  --surface-muted: #e9fff8;
+  --text-color: #113034;
+  --accent-color: #00bfa6;
+  --accent-strong: #009d88;
+  --accent-soft: #ccf7ef;
+  --menu-bg: #f7fffd;
+  --menu-hover: #dcfbf3;
+  --submenu-bg: #f7fffd;
+  --submenu-hover: #dcfbf3;
+  --button-bg: #00bfa6;
+  --button-hover: #009d88;
+  --button-text: #ffffff;
+  --button-secondary-bg: #effef9;
+  --button-secondary-hover: #d9fbf1;
+  --button-secondary-text: #113034;
+  --input-bg: #ffffff;
+  --input-border: #9dded2;
+  --input-text: #113034;
+  --placeholder-color: #5d8a83;
+  --progress-bg: #b7ece3;
+  --progress-bar: linear-gradient(90deg, #00bfa6 0%, #33e1c8 100%);
+  --progress-text: #04332d;
+  --dictionary-color: #ffb300;
+  --example-color: #406a66;
+  --finish-color: #009d88;
+  --strong-color: #009d88;
+  --danger-color: #ff5a74;
+  --shadow-soft: 0 10px 24px rgba(17, 83, 75, 0.16);
+  --shadow-button: 0 4px 0 rgba(0, 123, 107, 0.9);
+}
+
 /* === ГЛАВНЫЕ СТИЛИ === */
 * {
   box-sizing: border-box;
@@ -462,6 +571,39 @@ input::placeholder {
   color: var(--accent-color);
 }
 
+
+.icon-btn,
+.dictionary-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border-radius: 50%;
+  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: middle;
+  box-shadow: none;
+}
+
+.icon-btn {
+  background: transparent;
+  color: var(--text-color);
+  border: 1px solid rgba(34, 95, 51, 0.2);
+  font-size: 1.05rem;
+}
+
+.icon-btn:hover,
+.icon-btn:active,
+.dictionary-btn:hover,
+.dictionary-btn:active {
+  background: transparent;
+  box-shadow: none;
+  transform: scale(1.08);
+}
+
 /* === ЭЛЕМЕНТЫ === */
 #card,
 #phase2-translation,
@@ -528,7 +670,7 @@ input::placeholder {
 
   .menu__btn,
   .level-btn,
-  button {
+  button:not(.icon-btn):not(.dictionary-btn) {
     width: 100%;
     font-size: 0.98rem;
     padding: 10px 12px;
@@ -556,8 +698,13 @@ input::placeholder {
     font-size: 0.86rem;
   }
 
-  .dictionary-btn {
-    font-size: 1.25rem;
+  .dictionary-btn,
+  .icon-btn {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    min-height: 34px;
+    font-size: 1.1rem;
   }
 
   #finishPage h2 {
