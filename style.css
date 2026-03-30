@@ -433,6 +433,21 @@ strong {
   font-weight: 700;
 }
 
+.submenu li.lesson-item.completed {
+  background: var(--accent-color);
+  color: var(--button-text);
+  font-weight: 700;
+}
+
+.submenu li.lesson-item.completed:hover {
+  filter: brightness(1.05);
+}
+
+.submenu li.lesson-item.active {
+  outline: 2px solid var(--strong-color);
+  outline-offset: -2px;
+}
+
 /* === КНОПКИ === */
 button {
   background: var(--button-bg);
