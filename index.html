@@ -149,10 +149,13 @@ const LESSONS_FILES = {
 
 const THEMES = [
   { id: "theme-default", label: "Fresh Green" },
-  { id: "theme-second", label: "Olive Sand (ваша)" },
+  { id: "theme-classic-dark", label: "Classic Dark" },
+  { id: "theme-second", label: "Olive Sand" },
   { id: "theme-darkred", label: "Dark Red" },
   { id: "theme-midnight", label: "Midnight Blue" },
-  { id: "theme-lavender", label: "Lavender Neon" }
+  { id: "theme-lavender", label: "Lavender Neon" },
+  { id: "theme-sunset", label: "Sunset Glow" },
+  { id: "theme-cybermint", label: "Cyber Mint" }
 ];
 
 function getMyDictionary() {
@@ -373,14 +376,15 @@ function generateLevelsMenu() {
   });
 
   const favoritesBtn = document.createElement("li");
-  favoritesBtn.innerHTML = `<button id="favoritesDictionaryBtn">★ Избранные слова</button>`;
+  favoritesBtn.classList.add("menu__nav-item");
+  favoritesBtn.innerHTML = `<button id="favoritesDictionaryBtn" class="level-btn">Избранные слова</button>`;
   menu.appendChild(favoritesBtn);
   document.getElementById("favoritesDictionaryBtn").addEventListener("click", startDictionaryLesson);
 
   const customDictLi = document.createElement("li");
   customDictLi.classList.add("menu__nav-item");
   const customDictBtn = document.createElement("button");
-  customDictBtn.textContent = "📝 Мой словарь";
+  customDictBtn.textContent = "Мой словарь";
   customDictBtn.classList.add("level-btn");
   customDictLi.appendChild(customDictBtn);
 
@@ -711,7 +715,7 @@ function showNextCard(correct = true) {
   const word = words[i];
   document.getElementById("card").innerHTML =
     `<strong>${word}</strong> [${transcriptions[i] || ""}] — ${translations[i] || ""}
-     <button id="speakBtn">🔊</button>
+     <button id="speakBtn" class="icon-btn">🔊</button>
      <button id="addToDictionaryBtnDynamic" class="dictionary-btn">${isInDictionary(word) ? "★" : "☆"}</button>`;
   document.getElementById("cardExample").textContent = examples[i] || "";
 
@@ -749,6 +753,7 @@ function showAnswer() {
     btn = document.createElement("button");
     btn.id = "speakPhase4Btn";
     btn.textContent = "🔊";
+    btn.className = "icon-btn";
     answerContainer.appendChild(btn);
   }
   btn.onclick = () => speakWord(words[i]);
@@ -791,6 +796,7 @@ function showAnswer3() {
     btn = document.createElement("button");
     btn.id = "speakPhase5Btn";
     btn.textContent = "🔊";
+    btn.className = "icon-btn";
     answerContainer.appendChild(btn);
   }
   btn.onclick = () => speakWord(words[i]);
@@ -907,6 +913,7 @@ function showNextDictationWord() {
     btn = document.createElement("button");
     btn.id = "speakDictationBtn";
     btn.textContent = "🔊";
+    btn.className = "icon-btn";
     btn.style.marginLeft = "8px";
     page.appendChild(btn);
   }
