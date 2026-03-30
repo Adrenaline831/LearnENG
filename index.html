@@ -145,6 +145,7 @@ const THEME_STORAGE_KEY = "selectedTheme";
 const EXAMPLE_MODE_STORAGE_KEY = "pullExamplesFromJSON";
 const LEARNING_LANGUAGE_STORAGE_KEY = "learningLanguage";
 const LEARNING_PROGRESS_STORAGE_KEY = "learningProgressState";
+const REPEAT_LESSON_WORDS_COUNT = 30;
 const LESSONS_FILES = {
   english: "lessons.json",
   french: "french_lessons.json"
@@ -226,6 +227,104 @@ function shuffleArray(items) {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+function normalizeWordKey(word) {
+  return String(word || "").trim().toLowerCase();
+}
+
+function collectWordsFromFinishedLessons() {
+  const finished = getFinishedLessons();
+  const allWords = [];
+
+  Object.keys(finished).forEach(level => {
+    const finishedKeys = finished[level] || [];
+    finishedKeys.forEach(lessonKey => {
+      const lesson = lessonsDB[level]?.[lessonKey];
+      if (!lesson) return;
+      const lessonWords = lesson.english || lesson.french || [];
+      allWords.push(...lessonWords);
+    });
+  });
+
+  return allWords;
+}
+
+function buildWordPoolForRepeatLesson() {
+  const userDictionaryWords = getMyDictionary();
+  const customLessonsWords = getCustomDictionaryLessons().flatMap(lesson => lesson.words || []);
+  const finishedLessonsWords = collectWordsFromFinishedLessons();
+  const sourceWords = [
+    ...userDictionaryWords,
+    ...customLessonsWords,
+    ...finishedLessonsWords
+  ];
+
+  const uniqueWords = [];
+  const seen = new Set();
+  sourceWords.forEach(word => {
+    const key = normalizeWordKey(word);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    uniqueWords.push(String(word).trim());
+  });
+
+  return uniqueWords;
+}
+
+function startRepeatLesson() {
+  const pool = buildWordPoolForRepeatLesson();
+  if (pool.length === 0) {
+    alert("Недостаточно слов для повторения. Добавьте избранные слова, пользовательский словарь или завершите несколько уроков.");
+    return;
+  }
+
+  const selectedWords = shuffleArray(pool).slice(0, REPEAT_LESSON_WORDS_COUNT);
+  const foundWords = [];
+  const foundTranscriptions = [];
+  const foundTranslations = [];
+  const foundExamples = [];
+
+  selectedWords.forEach(word => {
+    let found = false;
+    for (const levelKey in lessonsDB) {
+      for (const lessonKey in lessonsDB[levelKey]) {
+        const lesson = lessonsDB[levelKey][lessonKey];
+        const lessonWords = lesson.english || lesson.french || [];
+        const index = lessonWords.findIndex(item => normalizeWordKey(item) === normalizeWordKey(word));
+        if (index === -1) continue;
+
+        const lessonTranslations = lesson.translated || lesson.english || lesson.french || [];
+        foundWords.push(lessonWords[index] || word);
+        foundTranscriptions.push((lesson.transcriptions || [])[index] || "");
+        foundTranslations.push(lessonTranslations[index] || "(перевод)");
+        foundExamples.push((lesson.example || [])[index] || "");
+        found = true;
+        break;
+      }
+      if (found) break;
+    }
+
+    if (!found) {
+      foundWords.push(word);
+      foundTranscriptions.push("");
+      foundTranslations.push("(перевод не найден)");
+      foundExamples.push("");
+    }
+  });
+
+  currentLesson = null;
+  words = foundWords;
+  transcriptions = foundTranscriptions;
+  translations = foundTranslations;
+  examples = foundExamples;
+  currentPhase = 3;
+  currentIndex = 0;
+  wrongQueue = [];
+  hideAllPages();
+  startPhase(currentPhase);
+  saveLearningProgress();
+  document.getElementById("menuDropdown").classList.remove("show");
 }
 
 function getCurrentVisiblePageId() {
@@ -450,21 +549,19 @@ function generateLevelsMenu() {
       const lessonLi = document.createElement("li");
       lessonLi.textContent = lessonsDB[level][lessonKey].title;
       lessonLi.style.cursor = "pointer";
+      lessonLi.classList.add("lesson-item");
 
       if (finished[level] && finished[level].includes(lessonKey)) {
-        lessonLi.style.backgroundColor = "#6fcf97";
-        lessonLi.style.color = "#000";
+        lessonLi.classList.add("completed");
       }
 
       lessonLi.addEventListener("click", () => {
         startLesson(level, lessonKey);
 
         if (currentLessonElement) {
-          currentLessonElement.style.backgroundColor = "";
-          currentLessonElement.style.color = "";
+          currentLessonElement.classList.remove("active");
         }
-        lessonLi.style.backgroundColor = "#ffd966";
-        lessonLi.style.color = "#000";
+        lessonLi.classList.add("active");
         currentLessonElement = lessonLi;
 
         setTimeout(() => {
@@ -584,6 +681,16 @@ function addSettingsMenu() {
   goToThemesBtn.style.width = "100%";
   themesLi.appendChild(goToThemesBtn);
   settingsSubmenu.appendChild(themesLi);
+
+  const repeatLi = document.createElement("li");
+  const repeatBtn = document.createElement("button");
+  repeatBtn.textContent = "Повторение (30 слов)";
+  repeatBtn.style.display = "block";
+  repeatBtn.style.width = "100%";
+  repeatBtn.style.marginTop = "6px";
+  repeatBtn.onclick = startRepeatLesson;
+  repeatLi.appendChild(repeatBtn);
+  settingsSubmenu.appendChild(repeatLi);
 
   const themesWindow = document.createElement("div");
   themesWindow.style.display = "none";
