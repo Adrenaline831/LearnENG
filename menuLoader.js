@@ -20,13 +20,31 @@ let slowMode = false;
 const LOCAL_STORAGE_KEY = "myDictionary";
 const FINISHED_LESSONS_KEY = "finishedLessons";
 
+function toDictionaryEntry(item) {
+  if (typeof item === "string") {
+    return { word: item, transcription: "", translation: "", example: "" };
+  }
+
+  if (!item || typeof item !== "object") {
+    return { word: "", transcription: "", translation: "", example: "" };
+  }
+
+  return {
+    word: (item.word || "").toString(),
+    transcription: (item.transcription || "").toString(),
+    translation: (item.translation || "").toString(),
+    example: (item.example || "").toString()
+  };
+}
+
 function getMyDictionary() {
   const dict = localStorage.getItem(LOCAL_STORAGE_KEY);
-  return dict ? JSON.parse(dict) : [];
+  const parsed = dict ? JSON.parse(dict) : [];
+  return Array.isArray(parsed) ? parsed.map(toDictionaryEntry).filter(item => item.word.trim()) : [];
 }
 
 function saveMyDictionary(dict) {
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dict));
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dict.map(toDictionaryEntry)));
 }
 
 function getFinishedLessons() {
@@ -43,18 +61,28 @@ function saveFinishedLesson(level, lessonKey) {
 
 // === Проверка словаря ===
 function isInDictionary(word) {
-  return getMyDictionary().includes(word);
+  const normalizedWord = normalizeDictionaryWord(word);
+  return getMyDictionary().some(item => normalizeDictionaryWord(item.word) === normalizedWord);
 }
 
-function toggleDictionary(word, button) {
+function toggleDictionary(word, button, metadata = {}) {
+  const normalizedWord = normalizeDictionaryWord(word);
   let dict = getMyDictionary();
-  if (dict.includes(word)) {
-    dict = dict.filter(w => w !== word);
+
+  const existingIndex = dict.findIndex(item => normalizeDictionaryWord(item.word) === normalizedWord);
+  if (existingIndex !== -1) {
+    dict.splice(existingIndex, 1);
     button.textContent = "☆";
   } else {
-    dict.push(word);
+    dict.push(toDictionaryEntry({
+      word,
+      transcription: metadata.transcription || "",
+      translation: metadata.translation || "",
+      example: metadata.example || ""
+    }));
     button.textContent = "★";
   }
+
   saveMyDictionary(dict);
 }
 
@@ -205,34 +233,71 @@ function startLesson(level, lessonKey) {
 }
 
 // === Запуск урока из словаря ===
+function normalizeDictionaryWord(value) {
+  return (value || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[’`´]/g, "'");
+}
+
+function findBestWordEntry(word) {
+  const normalizedWord = normalizeDictionaryWord(word);
+  if (!normalizedWord) return null;
+
+  let fallback = null;
+
+  for (const levelKey in lessonsDB) {
+    for (const lessonKey in lessonsDB[levelKey]) {
+      const lesson = lessonsDB[levelKey][lessonKey];
+      const englishWords = lesson.english || [];
+
+      for (let idx = 0; idx < englishWords.length; idx++) {
+        const candidate = englishWords[idx];
+        if (normalizeDictionaryWord(candidate) !== normalizedWord) continue;
+
+        const entry = {
+          word: candidate,
+          transcription: (lesson.transcriptions && lesson.transcriptions[idx]) || "",
+          translation: (lesson.translated && lesson.translated[idx]) || "",
+          example: (lesson.example && lesson.example[idx]) || ""
+        };
+
+        if (!fallback) fallback = entry;
+        if (entry.translation) return entry;
+      }
+    }
+  }
+
+  return fallback;
+}
+
+// === Запуск урока из словаря ===
 function startDictionaryLesson() {
   const dict = getMyDictionary();
   if (dict.length === 0) { alert("Ваш словарь пуст."); return; }
 
-  let foundWords = [], foundTrans = [], foundTransl = [], foundExamples = [];
-  for (const word of dict) {
-    let found = false;
-    for (const levelKey in lessonsDB) {
-      for (const lessonKey in lessonsDB[levelKey]) {
-        const lesson = lessonsDB[levelKey][lessonKey];
-        const idx = lesson.english.indexOf(word);
-        if (idx !== -1) {
-          foundWords.push(lesson.english[idx]);
-          foundTrans.push(lesson.transcriptions[idx] || "");
-          foundTransl.push(lesson.translated[idx] || "(перевод)");
-          foundExamples.push(lesson.example ? lesson.example[idx] : "");
-          found = true;
-          break;
-        }
-      }
-      if (found) break;
+  const foundWords = [];
+  const foundTrans = [];
+  const foundTransl = [];
+  const foundExamples = [];
+
+  for (const savedEntry of dict) {
+    const savedWord = savedEntry.word;
+    const entry = findBestWordEntry(savedWord);
+
+    if (entry) {
+      foundWords.push(entry.word);
+      foundTrans.push(entry.transcription || savedEntry.transcription);
+      foundTransl.push(entry.translation || savedEntry.translation || "(перевод отсутствует)");
+      foundExamples.push(entry.example || savedEntry.example);
+      continue;
     }
-    if (!found) {
-      foundWords.push(word);
-      foundTrans.push("");
-      foundTransl.push("(не найдено)");
-      foundExamples.push("");
-    }
+
+    foundWords.push(savedWord);
+    foundTrans.push(savedEntry.transcription || "");
+    foundTransl.push(savedEntry.translation || "(слово не найдено в уроках)");
+    foundExamples.push(savedEntry.example || "");
   }
 
   words = foundWords;
@@ -330,7 +395,11 @@ function showNextCard() {
   document.getElementById("cardExample").textContent = examples[currentIndex] || "";
 
   document.getElementById("speakBtn").onclick = () => speakWord(word);
-  document.getElementById("addToDictionaryBtn").onclick = () => toggleDictionary(word, document.getElementById("addToDictionaryBtn"));
+  document.getElementById("addToDictionaryBtn").onclick = () => toggleDictionary(word, document.getElementById("addToDictionaryBtn"), {
+    transcription: transcriptions[currentIndex - 1] || "",
+    translation: translations[currentIndex - 1] || "",
+    example: examples[currentIndex - 1] || ""
+  });
 
   currentIndex++;
   updateProgress();
