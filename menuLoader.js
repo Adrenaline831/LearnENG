@@ -205,34 +205,70 @@ function startLesson(level, lessonKey) {
 }
 
 // === Запуск урока из словаря ===
+function normalizeDictionaryWord(value) {
+  return (value || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/[’`´]/g, "'");
+}
+
+function findBestWordEntry(word) {
+  const normalizedWord = normalizeDictionaryWord(word);
+  if (!normalizedWord) return null;
+
+  let fallback = null;
+
+  for (const levelKey in lessonsDB) {
+    for (const lessonKey in lessonsDB[levelKey]) {
+      const lesson = lessonsDB[levelKey][lessonKey];
+      const englishWords = lesson.english || [];
+
+      for (let idx = 0; idx < englishWords.length; idx++) {
+        const candidate = englishWords[idx];
+        if (normalizeDictionaryWord(candidate) !== normalizedWord) continue;
+
+        const entry = {
+          word: candidate,
+          transcription: (lesson.transcriptions && lesson.transcriptions[idx]) || "",
+          translation: (lesson.translated && lesson.translated[idx]) || "",
+          example: (lesson.example && lesson.example[idx]) || ""
+        };
+
+        if (!fallback) fallback = entry;
+        if (entry.translation) return entry;
+      }
+    }
+  }
+
+  return fallback;
+}
+
+// === Запуск урока из словаря ===
 function startDictionaryLesson() {
   const dict = getMyDictionary();
   if (dict.length === 0) { alert("Ваш словарь пуст."); return; }
 
-  let foundWords = [], foundTrans = [], foundTransl = [], foundExamples = [];
-  for (const word of dict) {
-    let found = false;
-    for (const levelKey in lessonsDB) {
-      for (const lessonKey in lessonsDB[levelKey]) {
-        const lesson = lessonsDB[levelKey][lessonKey];
-        const idx = lesson.english.indexOf(word);
-        if (idx !== -1) {
-          foundWords.push(lesson.english[idx]);
-          foundTrans.push(lesson.transcriptions[idx] || "");
-          foundTransl.push(lesson.translated[idx] || "(перевод)");
-          foundExamples.push(lesson.example ? lesson.example[idx] : "");
-          found = true;
-          break;
-        }
-      }
-      if (found) break;
+  const foundWords = [];
+  const foundTrans = [];
+  const foundTransl = [];
+  const foundExamples = [];
+
+  for (const savedWord of dict) {
+    const entry = findBestWordEntry(savedWord);
+
+    if (entry) {
+      foundWords.push(entry.word);
+      foundTrans.push(entry.transcription);
+      foundTransl.push(entry.translation || "(перевод отсутствует)");
+      foundExamples.push(entry.example);
+      continue;
     }
-    if (!found) {
-      foundWords.push(word);
-      foundTrans.push("");
-      foundTransl.push("(не найдено)");
-      foundExamples.push("");
-    }
+
+    foundWords.push(savedWord);
+    foundTrans.push("");
+    foundTransl.push("(слово не найдено в уроках)");
+    foundExamples.push("");
   }
 
   words = foundWords;
