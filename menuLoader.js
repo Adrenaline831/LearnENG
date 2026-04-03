@@ -20,13 +20,39 @@ let slowMode = false;
 const LOCAL_STORAGE_KEY = "myDictionary";
 const FINISHED_LESSONS_KEY = "finishedLessons";
 
+function normalizeDictionaryEntry(entry) {
+  if (typeof entry === "string") {
+    return { word: entry, transcription: "", translation: "", example: "" };
+  }
+
+  if (!entry || typeof entry !== "object") {
+    return { word: "", transcription: "", translation: "", example: "" };
+  }
+
+  return {
+    word: (entry.word || "").toString().trim(),
+    transcription: (entry.transcription || "").toString(),
+    translation: (entry.translation || "").toString(),
+    example: (entry.example || "").toString()
+  };
+}
+
 function getMyDictionary() {
   const dict = localStorage.getItem(LOCAL_STORAGE_KEY);
-  return dict ? JSON.parse(dict) : [];
+  if (!dict) return [];
+
+  try {
+    const parsed = JSON.parse(dict);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.map(normalizeDictionaryEntry).filter(entry => entry.word);
+  } catch {
+    return [];
+  }
 }
 
 function saveMyDictionary(dict) {
-  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(dict));
+  const normalized = (dict || []).map(normalizeDictionaryEntry).filter(entry => entry.word);
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(normalized));
 }
 
 function getFinishedLessons() {
@@ -43,18 +69,26 @@ function saveFinishedLesson(level, lessonKey) {
 
 // === Проверка словаря ===
 function isInDictionary(word) {
-  return getMyDictionary().includes(word);
+  const normalizedWord = normalizeDictionaryWord(word);
+  return getMyDictionary().some(entry => normalizeDictionaryWord(entry.word) === normalizedWord);
 }
 
-function toggleDictionary(word, button) {
-  let dict = getMyDictionary();
-  if (dict.includes(word)) {
-    dict = dict.filter(w => w !== word);
+function toggleDictionary(entryOrWord, button) {
+  const entry = normalizeDictionaryEntry(entryOrWord);
+  if (!entry.word) return;
+
+  const normalizedWord = normalizeDictionaryWord(entry.word);
+  const dict = getMyDictionary();
+  const existingIndex = dict.findIndex(item => normalizeDictionaryWord(item.word) === normalizedWord);
+
+  if (existingIndex >= 0) {
+    dict.splice(existingIndex, 1);
     button.textContent = "☆";
   } else {
-    dict.push(word);
+    dict.push(entry);
     button.textContent = "★";
   }
+
   saveMyDictionary(dict);
 }
 
@@ -254,8 +288,18 @@ function startDictionaryLesson() {
   const foundTransl = [];
   const foundExamples = [];
 
-  for (const savedWord of dict) {
-    const entry = findBestWordEntry(savedWord);
+  for (const savedEntry of dict) {
+    const normalizedSavedEntry = normalizeDictionaryEntry(savedEntry);
+
+    if (normalizedSavedEntry.translation || normalizedSavedEntry.transcription || normalizedSavedEntry.example) {
+      foundWords.push(normalizedSavedEntry.word);
+      foundTrans.push(normalizedSavedEntry.transcription);
+      foundTransl.push(normalizedSavedEntry.translation || "(перевод отсутствует)");
+      foundExamples.push(normalizedSavedEntry.example);
+      continue;
+    }
+
+    const entry = findBestWordEntry(normalizedSavedEntry.word);
 
     if (entry) {
       foundWords.push(entry.word);
@@ -265,9 +309,9 @@ function startDictionaryLesson() {
       continue;
     }
 
-    foundWords.push(savedWord);
+    foundWords.push(normalizedSavedEntry.word);
     foundTrans.push("");
-    foundTransl.push("(слово не найдено в уроках)");
+    foundTransl.push("(перевод отсутствует)");
     foundExamples.push("");
   }
 
@@ -365,8 +409,15 @@ function showNextCard() {
      <button id="addToDictionaryBtn" class="dictionary-btn">${isInDictionary(word) ? "★" : "☆"}</button>`;
   document.getElementById("cardExample").textContent = examples[currentIndex] || "";
 
+  const dictionaryEntry = {
+    word,
+    transcription: transcriptions[currentIndex],
+    translation: translations[currentIndex],
+    example: examples[currentIndex]
+  };
+
   document.getElementById("speakBtn").onclick = () => speakWord(word);
-  document.getElementById("addToDictionaryBtn").onclick = () => toggleDictionary(word, document.getElementById("addToDictionaryBtn"));
+  document.getElementById("addToDictionaryBtn").onclick = () => toggleDictionary(dictionaryEntry, document.getElementById("addToDictionaryBtn"));
 
   currentIndex++;
   updateProgress();
