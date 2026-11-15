@@ -388,7 +388,7 @@ function findRepeatWordDetails(word) {
   for (const levelKey in lessonsDB) {
     for (const lessonKey in lessonsDB[levelKey]) {
       const lesson = lessonsDB[levelKey][lessonKey];
-      const lessonWords = lesson.english || lesson.french || [];
+      const lessonWords = lesson.english || lesson.french || lesson.italian || [];
       const index = lessonWords.findIndex(item => normalizeWordKey(item) === normalized);
       if (index === -1) continue;
       const lessonTranslations = lesson.translated || [];
@@ -871,7 +871,7 @@ function addSettingsMenu() {
 function startLesson(level, lessonKey) {
   const lesson = lessonsDB[level][lessonKey];
   if (!lesson) return;
-  const baseWords = lesson.english || lesson.french || [];
+  const baseWords = lesson.english || lesson.french || lesson.italian || [];
   const fallbackTranslations = lesson.translated || lesson.english || lesson.french || lesson.italian || [];
 
   currentLesson = { level, lessonKey };
@@ -909,12 +909,12 @@ let foundWords = [], foundTrans = [], foundTransl = [], foundExamples = [];
     for (const levelKey in lessonsDB) {
       for (const lessonKey in lessonsDB[levelKey]) {
         const lesson = lessonsDB[levelKey][lessonKey];
-        const lessonWords = lesson.english || lesson.french || [];
+        const lessonWords = lesson.english || lesson.french || lesson.italian || [];
         const idx = lessonWords.findIndex(item => normalizeDictionaryWord(item) === normalizedSavedWord);
         if (idx !== -1) {
           foundWords.push(lessonWords[idx]);
           foundTrans.push(lesson.transcriptions[idx] || "");
-          const lessonTranslations = lesson.translated || lesson.english || lesson.french || [];
+          const lessonTranslations = lesson.translated || lesson.english || lesson.french || lesson.italian || [];
           foundTransl.push(lessonTranslations[idx] || "(перевод отсутствует)");
           foundExamples.push(lesson.example ? lesson.example[idx] : "");
           found = true;
