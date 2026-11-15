@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="style.css">
 </head>
 
-<body>
+<body class="theme-classic-dark">
 
 <!-- Кнопка меню -->
 <button class="menu__btn" id="menuBtn">☰ Меню</button>
@@ -152,7 +152,7 @@ const LESSONS_FILES = {
 };
 
 const THEMES = [
-  { id: "theme-default", label: "Fresh Green" },
+  { id: "theme-fresh-green", label: "Fresh Green" },
   { id: "theme-classic-dark", label: "Classic Dark" },
   { id: "theme-second", label: "Olive Sand" },
   { id: "theme-darkred", label: "Dark Red" },
@@ -237,17 +237,17 @@ function savePullExamplesFlag(value) {
 
 function applyTheme(themeId) {
   const body = document.body;
-  THEMES.forEach(theme => {
-    if (theme.id !== "theme-default") body.classList.remove(theme.id);
-  });
-  if (themeId && themeId !== "theme-default") body.classList.add(themeId);
-  currentTheme = themeId || "theme-default";
+  THEMES.forEach(theme => body.classList.remove(theme.id));
+  currentTheme = THEMES.some(theme => theme.id === themeId) ? themeId : "theme-classic-dark";
+  body.classList.add(currentTheme);
   localStorage.setItem(THEME_STORAGE_KEY, currentTheme);
 }
 
 function loadSavedPreferences() {
   pullExamplesFromJSON = getPullExamplesFlag();
-  const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || "theme-classic-dark";
+  const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+  // Старый theme-default сохранялся автоматически как стартовая тема Fresh Green.
+  const savedTheme = storedTheme === "theme-default" ? "theme-classic-dark" : storedTheme;
   const knownTheme = THEMES.some(t => t.id === savedTheme) ? savedTheme : "theme-classic-dark";
   applyTheme(knownTheme);
   const savedLanguage = localStorage.getItem(LEARNING_LANGUAGE_STORAGE_KEY) || "english";
