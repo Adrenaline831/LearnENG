@@ -913,7 +913,7 @@ let foundWords = [], foundTrans = [], foundTransl = [], foundExamples = [];
         const idx = lessonWords.findIndex(item => normalizeDictionaryWord(item) === normalizedSavedWord);
         if (idx !== -1) {
           foundWords.push(lessonWords[idx]);
-          foundTrans.push(lesson.transcriptions[idx] || "");
+          foundTrans.push((lesson.transcriptions || [])[idx] || "");
           const lessonTranslations = lesson.translated || lesson.english || lesson.french || lesson.italian || [];
           foundTransl.push(lessonTranslations[idx] || "(перевод отсутствует)");
           foundExamples.push(lesson.example ? lesson.example[idx] : "");
