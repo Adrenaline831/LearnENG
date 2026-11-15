@@ -118,6 +118,7 @@
 
   <div id="finishPage" class="hidden">
     <h2>🎉 Урок завершён!</h2>
+    <p>Диктант пройден — можно переходить к следующему блоку.</p>
     <button onclick="backToMenu()">Вернуться к меню</button>
   </div>
 </div>
@@ -262,6 +263,11 @@ function updateExampleVisibility() {
 
 function returnHomeButtonMarkup() {
   return '<button type="button" class="return-home-mobile icon-btn" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>';
+}
+
+function formatWordWithTranscription(word, transcription) {
+  const cleanTranscription = String(transcription || "").trim();
+  return cleanTranscription ? `${word} [${cleanTranscription}]` : String(word || "");
 }
 
 function applyTheme(themeId) {
@@ -1094,7 +1100,7 @@ function showNextCard(correct = true) {
     example: examples[i] || ""
   };
   document.getElementById("card").innerHTML =
-    `<span class="word-prompt-text"><strong>${word}</strong> [${transcriptions[i] || ""}] — ${translations[i] || ""}</span>
+    `<span class="word-prompt-text"><strong>${formatWordWithTranscription(word, transcriptions[i])}</strong> — ${translations[i] || ""}</span>
      <span class="word-actions">
        <button id="speakBtn" class="icon-btn" aria-label="Произнести слово">🔊</button>
        <button id="addToDictionaryBtnDynamic" class="dictionary-btn" aria-label="Добавить в избранное">${isInDictionary(word) ? "★" : "☆"}</button>
@@ -1198,7 +1204,7 @@ function showPhase3() {
 function showAnswer3() {
   const i = getCurrentIndex();
   const answerContainer = document.getElementById("answerSection3");
-  document.getElementById("phase3-answer").textContent = `${words[i] || ""} [${transcriptions[i] || ""}]`;
+  document.getElementById("phase3-answer").textContent = formatWordWithTranscription(words[i], transcriptions[i]);
  answerContainer.classList.remove("hidden");
 
   let btn = document.getElementById("speakPhase5Btn");
@@ -1248,6 +1254,8 @@ function repeatPhase() {
 }
 
 function finishLesson() {
+  // Блок засчитывается только после правильного завершения всех слов диктанта.
+  if (currentPhase !== 6 || dictationQueue.length > 0) return;
   hideAllPages();
   document.getElementById("finishPage").classList.remove("hidden");
   if (currentLesson) saveFinishedLesson(currentLesson.level, currentLesson.lessonKey);
