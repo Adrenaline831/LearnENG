@@ -1194,6 +1194,7 @@ function finishLesson() {
   document.getElementById("finishPage").classList.remove("hidden");
   if (currentLesson) saveFinishedLesson(currentLesson.level, currentLesson.lessonKey);
   generateLevelsMenu();
+  addSettingsMenu();
   updateHistoryStage("finishPage");
   clearLearningProgress();
 }
