@@ -764,3 +764,59 @@ input::placeholder {
     font-size: 0.78rem;
   }
 }
+
+
+/* === Карточки слов и иконки === */
+#card,
+#phase2-translation,
+#phase3-original,
+#dictation-translation {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  text-align: left;
+}
+
+.word-prompt-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.word-prompt-text strong {
+  overflow-wrap: anywhere;
+}
+
+.word-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+}
+
+.return-home-mobile {
+  display: none;
+}
+
+.phase-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.phase-actions button {
+  margin: 6px 0 0;
+}
+
+.return-home-desktop {
+  margin-left: auto;
+  flex: 0 0 auto;
+}
+
+.example.hidden {
+  display: none !important;
+}
