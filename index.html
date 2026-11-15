@@ -54,11 +54,13 @@
       <button id="addToDictionaryBtn" class="dictionary-btn">☆</button>
     </p>
     <div class="example" id="cardExample"></div>
-    <button onclick="showNextCard(true)">Далее</button>
-    <button onclick="showNextCard(false)">❌</button>
-    <button onclick="repeatPhase()">Повторить этап</button>
-    <button onclick="goToNextPage()">Пропустить этап</button>
-    <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
+    <div class="phase-actions">
+      <button onclick="showNextCard(true)">Далее</button>
+      <button onclick="showNextCard(false)">❌</button>
+      <button onclick="repeatPhase()">Повторить этап</button>
+      <button onclick="goToNextPage()">Пропустить этап</button>
+      <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
+    </div>
   </div>
 
   <div id="page4" class="hidden">
@@ -71,11 +73,13 @@
     <button id="showAnswerBtn" onclick="showAnswer()">Показать ответ</button>
     <div id="answerSection" class="hidden">
       <p id="phase2-answer"></p>
-      <button onclick="markAnswer(true)">✅</button>
-      <button onclick="markAnswer(false)">❌</button>
-      <button onclick="repeatPhase()">Повторить этап</button>
-      <button onclick="goToNextPage()">Пропустить этап</button>
-      <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
+      <div class="phase-actions">
+        <button onclick="markAnswer(true)">✅</button>
+        <button onclick="markAnswer(false)">❌</button>
+        <button onclick="repeatPhase()">Повторить этап</button>
+        <button onclick="goToNextPage()">Пропустить этап</button>
+        <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
+      </div>
     </div>
   </div>
 
@@ -89,11 +93,13 @@
     <button id="showAnswerBtn3" onclick="showAnswer3()">Показать ответ</button>
     <div id="answerSection3" class="hidden">
       <p id="phase3-answer"></p>
-      <button onclick="markAnswer3(true)">✅</button>
-      <button onclick="markAnswer3(false)">❌</button>
-      <button onclick="repeatPhase()">Повторить этап</button>
-      <button onclick="goToNextPage()">Пропустить этап</button>
-      <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
+      <div class="phase-actions">
+        <button onclick="markAnswer3(true)">✅</button>
+        <button onclick="markAnswer3(false)">❌</button>
+        <button onclick="repeatPhase()">Повторить этап</button>
+        <button onclick="goToNextPage()">Пропустить этап</button>
+        <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
+      </div>
     </div>
   </div>
 
@@ -102,9 +108,11 @@
     <p id="dictation-translation"></p>
     <div class="example" id="dictation-example"></div>
     <input type="text" id="dictation-input" placeholder="Введите английское слово" autocomplete="off">
-    <button id="dictationCheckBtn" onclick="checkDictation()">Проверить</button>
-    <button id="dictationNextBtn" onclick="nextDictationAfterError()">Следующее</button>
-    <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
+    <div class="phase-actions">
+      <button id="dictationCheckBtn" onclick="checkDictation()">Проверить</button>
+      <button id="dictationNextBtn" onclick="nextDictationAfterError()">Следующее</button>
+      <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
+    </div>
     <p id="dictation-feedback"></p>
   </div>
 
