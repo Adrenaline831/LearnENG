@@ -820,3 +820,37 @@ input::placeholder {
 .example.hidden {
   display: none !important;
 }
+
+@media (max-width: 768px) {
+  .return-home-mobile {
+    display: inline-flex;
+  }
+
+  .return-home-desktop {
+    display: none !important;
+  }
+
+  .word-actions {
+    gap: 0;
+  }
+
+  .word-actions .icon-btn,
+  .word-actions .dictionary-btn {
+    margin: 0 0 0 2px;
+    flex: 0 0 34px;
+  }
+
+  .phase-actions {
+    width: 100%;
+  }
+}
+
+@media (min-width: 769px) {
+  .return-home-mobile {
+    display: none;
+  }
+
+  .phase-actions {
+    width: 100%;
+  }
+}
