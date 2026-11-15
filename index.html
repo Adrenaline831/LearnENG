@@ -249,7 +249,8 @@ function savePullExamplesFlag(value) {
 
 function updateExampleVisibility() {
   document.querySelectorAll(".example").forEach(example => {
-    example.classList.toggle("hidden", !pullExamplesFromJSON);
+    const hasExampleText = Boolean(example.textContent.trim());
+    example.classList.toggle("hidden", !pullExamplesFromJSON || !hasExampleText);
   });
 }
 
@@ -1083,6 +1084,7 @@ function showNextCard(correct = true) {
        ${returnHomeButtonMarkup()}
      </span>`;
   document.getElementById("cardExample").textContent = examples[i] || "";
+  updateExampleVisibility();
 
   document.getElementById("speakBtn").onclick = () => speakWord(word);
   document.getElementById("addToDictionaryBtnDynamic").onclick = () => toggleDictionary(dictionaryEntry, document.getElementById("addToDictionaryBtnDynamic"));
@@ -1112,6 +1114,7 @@ function showPhase2() {
        ${returnHomeButtonMarkup()}
      </span>`;
   document.getElementById("phase2-example").textContent = examples[i] || "";
+  updateExampleVisibility();
   document.getElementById("speakPhase2PromptBtn").onclick = () => speakWord(word);
   const phase2DictionaryBtn = document.getElementById("addToDictionaryBtnPhase2");
   if (phase2DictionaryBtn) {
@@ -1167,6 +1170,7 @@ function showPhase3() {
        ${returnHomeButtonMarkup()}
      </span>`;
   document.getElementById("phase3-example").textContent = examples[i] || "";
+  updateExampleVisibility();
   document.getElementById("speakPhase3PromptBtn").onclick = () => speakWord(word);
   const phase3DictionaryBtn = document.getElementById("addToDictionaryBtnPhase3");
   if (phase3DictionaryBtn) {
@@ -1319,6 +1323,7 @@ function showNextDictationWord() {
        ${returnHomeButtonMarkup()}
      </span>`;
   document.getElementById("dictation-example").textContent = examples[currentIndex] || "";
+  updateExampleVisibility();
   document.getElementById("speakDictationPromptBtn").onclick = () => speakWord(word);
   const dictationDictionaryBtn = document.getElementById("addToDictionaryBtnDictation");
   if (dictationDictionaryBtn) {
