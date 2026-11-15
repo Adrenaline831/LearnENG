@@ -58,6 +58,7 @@
     <button onclick="showNextCard(false)">❌</button>
     <button onclick="repeatPhase()">Повторить этап</button>
     <button onclick="goToNextPage()">Пропустить этап</button>
+    <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
   </div>
 
   <div id="page4" class="hidden">
@@ -74,6 +75,7 @@
       <button onclick="markAnswer(false)">❌</button>
       <button onclick="repeatPhase()">Повторить этап</button>
       <button onclick="goToNextPage()">Пропустить этап</button>
+      <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
     </div>
   </div>
 
@@ -91,6 +93,7 @@
       <button onclick="markAnswer3(false)">❌</button>
       <button onclick="repeatPhase()">Повторить этап</button>
       <button onclick="goToNextPage()">Пропустить этап</button>
+      <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
     </div>
   </div>
 
@@ -101,6 +104,7 @@
     <input type="text" id="dictation-input" placeholder="Введите английское слово" autocomplete="off">
     <button id="dictationCheckBtn" onclick="checkDictation()">Проверить</button>
     <button id="dictationNextBtn" onclick="nextDictationAfterError()">Следующее</button>
+    <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
     <p id="dictation-feedback"></p>
   </div>
 
@@ -235,6 +239,16 @@ function savePullExamplesFlag(value) {
   localStorage.setItem(EXAMPLE_MODE_STORAGE_KEY, String(value));
 }
 
+function updateExampleVisibility() {
+  document.querySelectorAll(".example").forEach(example => {
+    example.classList.toggle("hidden", !pullExamplesFromJSON);
+  });
+}
+
+function returnHomeButtonMarkup() {
+  return '<button type="button" class="return-home-mobile icon-btn" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>';
+}
+
 function applyTheme(themeId) {
   const body = document.body;
   THEMES.forEach(theme => body.classList.remove(theme.id));
@@ -245,6 +259,7 @@ function applyTheme(themeId) {
 
 function loadSavedPreferences() {
   pullExamplesFromJSON = getPullExamplesFlag();
+  updateExampleVisibility();
   const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
   // Старый theme-default сохранялся автоматически как стартовая тема Fresh Green.
   const savedTheme = storedTheme === "theme-default" ? "theme-classic-dark" : storedTheme;
@@ -759,6 +774,7 @@ function addSettingsMenu() {
     } else {
       alert("Примеры снова включены и будут браться из JSON.");
     }
+    updateExampleVisibility();
   };
   examplesLi.appendChild(resetBtn);
   settingsSubmenu.appendChild(examplesLi);
@@ -1052,9 +1068,12 @@ function showNextCard(correct = true) {
     example: examples[i] || ""
   };
   document.getElementById("card").innerHTML =
-    `<strong>${word}</strong> [${transcriptions[i] || ""}] — ${translations[i] || ""}
-     <button id="speakBtn" class="icon-btn">🔊</button>
-     <button id="addToDictionaryBtnDynamic" class="dictionary-btn">${isInDictionary(word) ? "★" : "☆"}</button>`;
+    `<span class="word-prompt-text"><strong>${word}</strong> [${transcriptions[i] || ""}] — ${translations[i] || ""}</span>
+     <span class="word-actions">
+       <button id="speakBtn" class="icon-btn" aria-label="Произнести слово">🔊</button>
+       <button id="addToDictionaryBtnDynamic" class="dictionary-btn" aria-label="Добавить в избранное">${isInDictionary(word) ? "★" : "☆"}</button>
+       ${returnHomeButtonMarkup()}
+     </span>`;
   document.getElementById("cardExample").textContent = examples[i] || "";
 
   document.getElementById("speakBtn").onclick = () => speakWord(word);
@@ -1078,9 +1097,14 @@ function showPhase2() {
     example: examples[i] || ""
   };
   document.getElementById("phase2-translation").innerHTML =
-    `<strong>${word}</strong>
-     <button id="addToDictionaryBtnPhase2" class="dictionary-btn">${isInDictionary(word) ? "★" : "☆"}</button>`;
+    `<span class="word-prompt-text"><strong>${word}</strong></span>
+     <span class="word-actions">
+       <button id="speakPhase2PromptBtn" class="icon-btn" aria-label="Произнести слово">🔊</button>
+       <button id="addToDictionaryBtnPhase2" class="dictionary-btn" aria-label="Добавить в избранное">${isInDictionary(word) ? "★" : "☆"}</button>
+       ${returnHomeButtonMarkup()}
+     </span>`;
   document.getElementById("phase2-example").textContent = examples[i] || "";
+  document.getElementById("speakPhase2PromptBtn").onclick = () => speakWord(word);
   const phase2DictionaryBtn = document.getElementById("addToDictionaryBtnPhase2");
   if (phase2DictionaryBtn) {
     phase2DictionaryBtn.onclick = () => toggleDictionary(dictionaryEntry, phase2DictionaryBtn);
@@ -1128,9 +1152,14 @@ function showPhase3() {
     example: examples[i] || ""
   };
   document.getElementById("phase3-original").innerHTML =
-    `<strong>${translations[i] || ""}</strong>
-     <button id="addToDictionaryBtnPhase3" class="dictionary-btn">${isInDictionary(word) ? "★" : "☆"}</button>`;
+    `<span class="word-prompt-text"><strong>${translations[i] || ""}</strong></span>
+     <span class="word-actions">
+       <button id="speakPhase3PromptBtn" class="icon-btn" aria-label="Произнести слово">🔊</button>
+       <button id="addToDictionaryBtnPhase3" class="dictionary-btn" aria-label="Добавить в избранное">${isInDictionary(word) ? "★" : "☆"}</button>
+       ${returnHomeButtonMarkup()}
+     </span>`;
   document.getElementById("phase3-example").textContent = examples[i] || "";
+  document.getElementById("speakPhase3PromptBtn").onclick = () => speakWord(word);
   const phase3DictionaryBtn = document.getElementById("addToDictionaryBtnPhase3");
   if (phase3DictionaryBtn) {
     phase3DictionaryBtn.onclick = () => toggleDictionary(dictionaryEntry, phase3DictionaryBtn);
@@ -1199,6 +1228,30 @@ function finishLesson() {
   clearLearningProgress();
 }
 
+function returnToManualInput() {
+  currentLesson = null;
+  currentLessonElement = null;
+  words = [];
+  transcriptions = [];
+  translations = [];
+  examples = [];
+  currentPhase = 0;
+  currentIndex = 0;
+  wrongQueue = [];
+  phaseQueue = [];
+  dictationQueue = [];
+  dictationWaiting = false;
+  clearLearningProgress();
+  hideAllPages();
+  document.getElementById("page0").classList.remove("hidden");
+  document.getElementById("menuDropdown").classList.remove("show");
+  document.getElementById("progressText").textContent = "";
+  document.getElementById("progressBar").style.width = "0%";
+  document.getElementById("progressBar").textContent = "0%";
+  updateHistoryStage("page0");
+  document.getElementById("englishWords").focus();
+}
+
 function backToMenu() {
   hideAllPages();
   document.getElementById("page0").classList.remove("hidden");
@@ -1251,9 +1304,14 @@ function showNextDictationWord() {
     example: examples[currentIndex] || ""
   };
   document.getElementById("dictation-translation").innerHTML =
-    `<strong>${translations[currentIndex] || ""}</strong>
-     <button id="addToDictionaryBtnDictation" class="dictionary-btn">${isInDictionary(word) ? "★" : "☆"}</button>`;
- document.getElementById("dictation-example").textContent = examples[currentIndex] || "";
+    `<span class="word-prompt-text"><strong>${translations[currentIndex] || ""}</strong></span>
+     <span class="word-actions">
+       <button id="speakDictationPromptBtn" class="icon-btn" aria-label="Произнести слово">🔊</button>
+       <button id="addToDictionaryBtnDictation" class="dictionary-btn" aria-label="Добавить в избранное">${isInDictionary(word) ? "★" : "☆"}</button>
+       ${returnHomeButtonMarkup()}
+     </span>`;
+  document.getElementById("dictation-example").textContent = examples[currentIndex] || "";
+  document.getElementById("speakDictationPromptBtn").onclick = () => speakWord(word);
   const dictationDictionaryBtn = document.getElementById("addToDictionaryBtnDictation");
   if (dictationDictionaryBtn) {
     dictationDictionaryBtn.onclick = () => toggleDictionary(dictionaryEntry, dictationDictionaryBtn);
@@ -1273,17 +1331,7 @@ function showNextDictationWord() {
   if (checkBtn) checkBtn.disabled = false;
   if (nextBtn) nextBtn.disabled = true;
 
-  // кнопка озвучки (создаётся один раз и располагается на странице)
-  let btn = document.getElementById("speakDictationBtn");
-  if (!btn) {
-    btn = document.createElement("button");
-    btn.id = "speakDictationBtn";
-    btn.textContent = "🔊";
-    btn.className = "icon-btn";
-    btn.style.marginLeft = "8px";
-    page.appendChild(btn);
-  }
-  btn.onclick = () => speakWord(words[currentIndex]);
+
 }
 
 function checkDictation() {
