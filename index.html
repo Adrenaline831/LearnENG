@@ -132,7 +132,7 @@ let dictationWaiting = false;
 let pullExamplesFromJSON = true;
 let lastSpokenWord = "";
 let slowMode = false;
-let currentTheme = "theme-default";
+let currentTheme = "theme-classic-dark";
 let currentLearningLanguage = "english";
 let historyNavigationEnabled = false;
 let suppressPopStateHandler = false;
@@ -247,8 +247,8 @@ function applyTheme(themeId) {
 
 function loadSavedPreferences() {
   pullExamplesFromJSON = getPullExamplesFlag();
-  const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || "theme-default";
-  const knownTheme = THEMES.some(t => t.id === savedTheme) ? savedTheme : "theme-default";
+  const savedTheme = localStorage.getItem(THEME_STORAGE_KEY) || "theme-classic-dark";
+  const knownTheme = THEMES.some(t => t.id === savedTheme) ? savedTheme : "theme-classic-dark";
   applyTheme(knownTheme);
   const savedLanguage = localStorage.getItem(LEARNING_LANGUAGE_STORAGE_KEY) || "english";
   currentLearningLanguage = LESSONS_FILES[savedLanguage] ? savedLanguage : "english";
@@ -272,12 +272,21 @@ function collectWordsFromFinishedLessons() {
   const allWords = [];
 
   Object.keys(finished).forEach(level => {
+    if (!/^(A1|A2|B1|B2|C1|C2)$/i.test(level.trim())) return;
     const finishedKeys = finished[level] || [];
     finishedKeys.forEach(lessonKey => {
       const lesson = lessonsDB[level]?.[lessonKey];
       if (!lesson) return;
       const lessonWords = lesson.english || lesson.french || [];
-      allWords.push(...lessonWords);
+      const lessonTranslations = lesson.translated || [];
+      lessonWords.forEach((word, index) => {
+        allWords.push({
+          word,
+          transcription: (lesson.transcriptions || [])[index] || "",
+          translation: lessonTranslations[index] || "",
+          example: (lesson.example || [])[index] || ""
+        });
+      });
     });
   });
 
@@ -285,67 +294,106 @@ function collectWordsFromFinishedLessons() {
 }
 
 function buildWordPoolForRepeatLesson() {
-  const userDictionaryWords = getMyDictionary().map(entry => entry.word);
-  const customLessonsWords = getCustomDictionaryLessons().flatMap(lesson => lesson.words || []);
-  const finishedLessonsWords = collectWordsFromFinishedLessons();
-  const sourceWords = [
-    ...userDictionaryWords,
-    ...customLessonsWords,
-    ...finishedLessonsWords
-  ];
+  const favorites = getMyDictionary().map(normalizeDictionaryEntry);
+  const customLessons = getCustomDictionaryLessons();
+  const sources = {
+    builtIn: collectWordsFromFinishedLessons(),
+    custom: customLessons.flatMap(lesson => (lesson.words || []).map((word, index) => ({
+      word,
+      transcription: (lesson.transcriptions || [])[index] || "",
+      translation: (lesson.translations || [])[index] || "",
+      example: (lesson.examples || [])[index] || ""
+    }))),
+    favorites: favorites.map(entry => ({ ...entry }))
+  };
 
-  const uniqueWords = [];
-  const seen = new Set();
-  sourceWords.forEach(word => {
-    const key = normalizeWordKey(word);
-    if (!key || seen.has(key)) return;
-    seen.add(key);
-    uniqueWords.push(String(word).trim());
+  // Дедупликация внутри каждого источника сохраняет случайное смешивание
+  // категорий, а слова, попавшие сразу в несколько источников, считаются один раз.
+  Object.keys(sources).forEach(source => {
+    const seen = new Set();
+    sources[source] = sources[source].filter(entry => {
+      const key = normalizeWordKey(entry.word);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   });
 
-  return uniqueWords;
+  return sources;
+}
+
+function selectMixedRepeatWords(sources, count) {
+  const available = Object.fromEntries(
+    Object.entries(sources).map(([source, entries]) => [source, [...entries]])
+  );
+  const selected = [];
+  const selectedKeys = new Set();
+
+  while (selected.length < count) {
+    const activeSources = Object.keys(available).filter(source => available[source].length > 0);
+    if (activeSources.length === 0) break;
+
+    const source = activeSources[Math.floor(Math.random() * activeSources.length)];
+    const entries = available[source];
+    const entry = entries.splice(Math.floor(Math.random() * entries.length), 1)[0];
+    const key = normalizeWordKey(entry.word);
+    if (!key || selectedKeys.has(key)) continue;
+
+    selectedKeys.add(key);
+    selected.push(entry);
+
+    // Исключаем уже выбранное слово из остальных источников.
+    Object.keys(available).forEach(otherSource => {
+      available[otherSource] = available[otherSource].filter(
+        candidate => normalizeWordKey(candidate.word) !== key
+      );
+    });
+  }
+
+  return shuffleArray(selected);
+}
+
+function findRepeatWordDetails(word) {
+  const normalized = normalizeWordKey(word);
+  for (const levelKey in lessonsDB) {
+    for (const lessonKey in lessonsDB[levelKey]) {
+      const lesson = lessonsDB[levelKey][lessonKey];
+      const lessonWords = lesson.english || lesson.french || [];
+      const index = lessonWords.findIndex(item => normalizeWordKey(item) === normalized);
+      if (index === -1) continue;
+      const lessonTranslations = lesson.translated || [];
+      return {
+        word: lessonWords[index],
+        transcription: (lesson.transcriptions || [])[index] || "",
+        translation: lessonTranslations[index] || "",
+        example: (lesson.example || [])[index] || ""
+      };
+    }
+  }
+  return null;
 }
 
 function startRepeatLesson() {
-  const pool = buildWordPoolForRepeatLesson();
-  if (pool.length === 0) {
-    alert("Недостаточно слов для повторения. Добавьте избранные слова, пользовательский словарь или завершите несколько уроков.");
+  const sourcePools = buildWordPoolForRepeatLesson();
+  const selectedWords = selectMixedRepeatWords(sourcePools, REPEAT_LESSON_WORDS_COUNT);
+  if (selectedWords.length === 0) {
+    alert("Пока нет слов для повторения. Пройдите встроенные уроки A1–C2, создайте свой список или добавьте слова в избранное.");
     return;
   }
 
-  const selectedWords = shuffleArray(pool).slice(0, REPEAT_LESSON_WORDS_COUNT);
-  const foundWords = [];
-  const foundTranscriptions = [];
-  const foundTranslations = [];
-  const foundExamples = [];
-
-  selectedWords.forEach(word => {
-    let found = false;
-    for (const levelKey in lessonsDB) {
-      for (const lessonKey in lessonsDB[levelKey]) {
-        const lesson = lessonsDB[levelKey][lessonKey];
-        const lessonWords = lesson.english || lesson.french || [];
-        const index = lessonWords.findIndex(item => normalizeWordKey(item) === normalizeWordKey(word));
-        if (index === -1) continue;
-
-        const lessonTranslations = lesson.translated || lesson.english || lesson.french || [];
-        foundWords.push(lessonWords[index] || word);
-        foundTranscriptions.push((lesson.transcriptions || [])[index] || "");
-        foundTranslations.push(lessonTranslations[index] || "(перевод)");
-        foundExamples.push((lesson.example || [])[index] || "");
-        found = true;
-        break;
-      }
-      if (found) break;
-    }
-
-    if (!found) {
-      foundWords.push(word);
-      foundTranscriptions.push("");
-      foundTranslations.push("(перевод не найден)");
-      foundExamples.push("");
-    }
+  const entries = selectedWords.map(entry => {
+    const lessonEntry = findRepeatWordDetails(entry.word);
+    return {
+      word: entry.word,
+      transcription: entry.transcription || lessonEntry?.transcription || "",
+      translation: entry.translation || lessonEntry?.translation || "(перевод не найден)",
+      example: entry.example || lessonEntry?.example || ""
+    };
   });
+  const foundWords = entries.map(entry => entry.word);
+  const foundTranscriptions = entries.map(entry => entry.transcription);
+  const foundTranslations = entries.map(entry => entry.translation);
+  const foundExamples = entries.map(entry => entry.example);
 
   currentLesson = null;
   words = foundWords;
