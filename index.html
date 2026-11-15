@@ -444,43 +444,46 @@ function buildWordPoolForRepeatLesson() {
 }
 
 function selectMixedRepeatWords(sources, count) {
+  const ignoranceEntries = [...(sources.ignorance || [])];
   const selected = [];
   const selectedKeys = new Set();
-  const ignoranceEntries = sources.ignorance || [];
-  const ignoranceQuota = Math.min(
-    Math.round(count * IGNORANCE_INDEX_SHARE),
-    ignoranceEntries.length
-  );
-
-  selectWeightedWords(ignoranceEntries, ignoranceQuota).forEach(entry => {
-    const key = normalizeWordKey(entry.word);
-    if (!key || selectedKeys.has(key)) return;
-    selectedKeys.add(key);
-    selected.push(entry);
-  });
-
-  const ignoranceKeys = new Set(ignoranceEntries.map(entry => normalizeWordKey(entry.word)));
   const available = Object.fromEntries(
     Object.entries(sources)
       .filter(([source]) => source !== "ignorance")
-      .map(([source, entries]) => [
-        source,
-        entries.filter(entry => !ignoranceKeys.has(normalizeWordKey(entry.word)))
-      ])
+      .map(([source, entries]) => [source, [...entries]])
   );
 
   while (selected.length < count) {
     const activeSources = Object.keys(available).filter(source => available[source].length > 0);
-    if (activeSources.length === 0) break;
+    const hasIgnoranceWords = ignoranceEntries.some(
+      entry => !selectedKeys.has(normalizeWordKey(entry.word))
+    );
+    if (activeSources.length === 0 && !hasIgnoranceWords) break;
 
-    const source = activeSources[Math.floor(Math.random() * activeSources.length)];
-    const entries = available[source];
-    const entry = entries.splice(Math.floor(Math.random() * entries.length), 1)[0];
-    const key = normalizeWordKey(entry.word);
+    // В среднем 35% выборов берётся из индекса незнания. Это вероятность
+    // выбора источника, а не обязательная квота для конкретных слов.
+    const chooseIgnorance = hasIgnoranceWords && (
+      activeSources.length === 0 || Math.random() < IGNORANCE_INDEX_SHARE
+    );
+
+    let entry;
+    if (chooseIgnorance) {
+      const remainingIgnorance = ignoranceEntries.filter(
+        candidate => !selectedKeys.has(normalizeWordKey(candidate.word))
+      );
+      entry = selectWeightedWords(remainingIgnorance, 1)[0];
+    } else {
+      const source = activeSources[Math.floor(Math.random() * activeSources.length)];
+      const entries = available[source];
+      entry = entries.splice(Math.floor(Math.random() * entries.length), 1)[0];
+    }
+
+    const key = normalizeWordKey(entry?.word);
     if (!key || selectedKeys.has(key)) continue;
 
     selectedKeys.add(key);
     selected.push(entry);
+
     Object.keys(available).forEach(otherSource => {
       available[otherSource] = available[otherSource].filter(
         candidate => normalizeWordKey(candidate.word) !== key
@@ -488,20 +491,8 @@ function selectMixedRepeatWords(sources, count) {
     });
   }
 
-  // Если в остальных источниках не хватило уникальных слов, добираем индексом.
-  const remainingIgnorance = ignoranceEntries.filter(
-    entry => !selectedKeys.has(normalizeWordKey(entry.word))
-  );
-  selectWeightedWords(remainingIgnorance, count - selected.length).forEach(entry => {
-    const key = normalizeWordKey(entry.word);
-    if (!key || selectedKeys.has(key)) return;
-    selectedKeys.add(key);
-    selected.push(entry);
-  });
-
   return shuffleArray(selected);
 }
-
 function findRepeatWordDetails(word) {
   const normalized = normalizeWordKey(word);
   for (const levelKey in lessonsDB) {
