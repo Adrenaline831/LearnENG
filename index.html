@@ -159,6 +159,8 @@ const EXAMPLE_MODE_STORAGE_KEY = "pullExamplesFromJSON";
 const LEARNING_LANGUAGE_STORAGE_KEY = "learningLanguage";
 const LEARNING_PROGRESS_STORAGE_KEY = "learningProgressState";
 const REPEAT_LESSON_WORDS_COUNT = 30;
+const IGNORANCE_INDEX_SHARE = 0.35;
+const WORD_KNOWLEDGE_STORAGE_KEY_PREFIX = "wordKnowledgeIndex";
 const LESSONS_FILES = {
   english: "lessons.json",
   french: "french_lessons.json",
@@ -303,6 +305,84 @@ function normalizeWordKey(word) {
   return String(word || "").trim().toLowerCase();
 }
 
+function getWordKnowledgeStorageKey() {
+  return `${WORD_KNOWLEDGE_STORAGE_KEY_PREFIX}_${currentLearningLanguage}`;
+}
+
+function getWordKnowledge() {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(getWordKnowledgeStorageKey()) || "[]");
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(entry => entry && typeof entry === "object" && String(entry.word || "").trim())
+      .map(entry => ({
+        word: String(entry.word).trim(),
+        index: Number.isFinite(Number(entry.index)) ? Number(entry.index) : 0,
+        correctCount: Math.max(0, Number(entry.correctCount) || 0),
+        wrongCount: Math.max(0, Number(entry.wrongCount) || 0),
+        updatedAt: Number(entry.updatedAt) || 0
+      }));
+  } catch (error) {
+    console.error("Не удалось прочитать индекс незнания:", error);
+    return [];
+  }
+}
+
+function saveWordKnowledge(entries) {
+  localStorage.setItem(getWordKnowledgeStorageKey(), JSON.stringify(entries));
+}
+
+function recordWordKnowledgeAnswer(word, answeredCorrectly) {
+  const cleanWord = String(word || "").trim();
+  const wordKey = normalizeWordKey(cleanWord);
+  if (!wordKey) return;
+
+  const entries = getWordKnowledge();
+  let entry = entries.find(item => normalizeWordKey(item.word) === wordKey);
+  if (!entry) {
+    entry = { word: cleanWord, index: 0, correctCount: 0, wrongCount: 0, updatedAt: 0 };
+    entries.push(entry);
+  }
+
+  if (answeredCorrectly) {
+    entry.correctCount += 1;
+    entry.index = Math.max(-3, entry.index - 1);
+  } else {
+    entry.wrongCount += 1;
+    entry.index += 1;
+  }
+  entry.updatedAt = Date.now();
+  saveWordKnowledge(entries);
+}
+
+function getIgnoranceBonusPercent(index) {
+  return index <= -3 ? 5 : Math.max(0, index);
+}
+
+function selectWeightedWords(entries, count) {
+  const pool = [...entries];
+  const selected = [];
+
+  while (pool.length > 0 && selected.length < count) {
+    const weights = pool.map(entry => 100 + getIgnoranceBonusPercent(entry.index || 0));
+    const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+    let choice = Math.random() * totalWeight;
+    let selectedIndex = 0;
+
+    for (let i = 0; i < weights.length; i++) {
+      choice -= weights[i];
+      if (choice < 0) {
+        selectedIndex = i;
+        break;
+      }
+    }
+
+    selected.push(pool.splice(selectedIndex, 1)[0]);
+  }
+
+  return selected;
+}
+
 function collectWordsFromFinishedLessons() {
   const finished = getFinishedLessons();
   const allWords = [];
@@ -340,7 +420,12 @@ function buildWordPoolForRepeatLesson() {
       translation: (lesson.translations || [])[index] || "",
       example: (lesson.examples || [])[index] || ""
     }))),
-    favorites: favorites.map(entry => ({ ...entry }))
+    favorites: favorites.map(entry => ({ ...entry })),
+    ignorance: getWordKnowledge().map(entry => ({
+      ...(findRepeatWordDetails(entry.word) || {}),
+      word: entry.word,
+      index: entry.index
+    }))
   };
 
   // Дедупликация внутри каждого источника сохраняет случайное смешивание
@@ -359,11 +444,30 @@ function buildWordPoolForRepeatLesson() {
 }
 
 function selectMixedRepeatWords(sources, count) {
-  const available = Object.fromEntries(
-    Object.entries(sources).map(([source, entries]) => [source, [...entries]])
-  );
   const selected = [];
   const selectedKeys = new Set();
+  const ignoranceEntries = sources.ignorance || [];
+  const ignoranceQuota = Math.min(
+    Math.round(count * IGNORANCE_INDEX_SHARE),
+    ignoranceEntries.length
+  );
+
+  selectWeightedWords(ignoranceEntries, ignoranceQuota).forEach(entry => {
+    const key = normalizeWordKey(entry.word);
+    if (!key || selectedKeys.has(key)) return;
+    selectedKeys.add(key);
+    selected.push(entry);
+  });
+
+  const ignoranceKeys = new Set(ignoranceEntries.map(entry => normalizeWordKey(entry.word)));
+  const available = Object.fromEntries(
+    Object.entries(sources)
+      .filter(([source]) => source !== "ignorance")
+      .map(([source, entries]) => [
+        source,
+        entries.filter(entry => !ignoranceKeys.has(normalizeWordKey(entry.word)))
+      ])
+  );
 
   while (selected.length < count) {
     const activeSources = Object.keys(available).filter(source => available[source].length > 0);
@@ -377,14 +481,23 @@ function selectMixedRepeatWords(sources, count) {
 
     selectedKeys.add(key);
     selected.push(entry);
-
-    // Исключаем уже выбранное слово из остальных источников.
     Object.keys(available).forEach(otherSource => {
       available[otherSource] = available[otherSource].filter(
         candidate => normalizeWordKey(candidate.word) !== key
       );
     });
   }
+
+  // Если в остальных источниках не хватило уникальных слов, добираем индексом.
+  const remainingIgnorance = ignoranceEntries.filter(
+    entry => !selectedKeys.has(normalizeWordKey(entry.word))
+  );
+  selectWeightedWords(remainingIgnorance, count - selected.length).forEach(entry => {
+    const key = normalizeWordKey(entry.word);
+    if (!key || selectedKeys.has(key)) return;
+    selectedKeys.add(key);
+    selected.push(entry);
+  });
 
   return shuffleArray(selected);
 }
@@ -406,7 +519,21 @@ function findRepeatWordDetails(word) {
       };
     }
   }
-  return null;
+  for (const lesson of getCustomDictionaryLessons()) {
+    const lessonWords = lesson.words || [];
+    const index = lessonWords.findIndex(item => normalizeWordKey(item) === normalized);
+    if (index !== -1) {
+      return {
+        word: lessonWords[index],
+        transcription: (lesson.transcriptions || [])[index] || "",
+        translation: (lesson.translations || [])[index] || "",
+        example: (lesson.examples || [])[index] || ""
+      };
+    }
+  }
+
+  const favorite = getMyDictionary().find(entry => normalizeWordKey(entry.word) === normalized);
+  return favorite || null;
 }
 
 function startRepeatLesson() {
@@ -1085,6 +1212,7 @@ function updateProgress() {
 /* === Фаза 3 (карточки) === */
 function showNextCard(correct = true) {
   if (phaseQueue.length > 0 && correct !== null) {
+    recordWordKnowledgeAnswer(words[phaseQueue[0]], correct);
     if (correct) phaseQueue.shift();
     else phaseQueue.push(phaseQueue.shift());
   }
@@ -1164,6 +1292,7 @@ function showAnswer() {
 
 function markAnswer(correct) {
   if (phaseQueue.length > 0) {
+    recordWordKnowledgeAnswer(words[phaseQueue[0]], correct);
     if (correct) phaseQueue.shift();
     else phaseQueue.push(phaseQueue.shift());
   }
@@ -1220,6 +1349,7 @@ function showAnswer3() {
 
 function markAnswer3(correct) {
   if (phaseQueue.length > 0) {
+    recordWordKnowledgeAnswer(words[phaseQueue[0]], correct);
     if (correct) phaseQueue.shift();
     else phaseQueue.push(phaseQueue.shift());
   }
@@ -1393,6 +1523,7 @@ function checkDictation() {
 
   if (userAnswer.toLowerCase() === correctWord.toLowerCase()) {
     // правильно — удаляем текущий элемент из очереди и переходим к следующему
+    recordWordKnowledgeAnswer(correctWord, true);
     feedbackEl.textContent = "✅ Верно!";
     dictationQueue.shift();
     updateProgress();
@@ -1405,6 +1536,7 @@ function checkDictation() {
 
   } else {
     // неверно — показываем правильный ответ в поле ввода и перемещаем слово в конец очереди
+    recordWordKnowledgeAnswer(correctWord, false);
     feedbackEl.textContent = "❌ Неверно. Слово будет повторено позже.";
     inputEl.value = correctWord;
 
