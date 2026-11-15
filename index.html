@@ -160,7 +160,13 @@ const LEARNING_PROGRESS_STORAGE_KEY = "learningProgressState";
 const REPEAT_LESSON_WORDS_COUNT = 30;
 const LESSONS_FILES = {
   english: "lessons.json",
-  french: "french_lessons.json"
+  french: "french_lessons.json",
+  italian: "words_italian.json"
+};
+const LANGUAGE_LABELS = {
+  english: "Английский",
+  french: "Французский",
+  italian: "Итальянский"
 };
 
 const THEMES = [
@@ -301,7 +307,7 @@ function collectWordsFromFinishedLessons() {
     finishedKeys.forEach(lessonKey => {
       const lesson = lessonsDB[level]?.[lessonKey];
       if (!lesson) return;
-      const lessonWords = lesson.english || lesson.french || [];
+      const lessonWords = lesson.english || lesson.french || lesson.italian || [];
       const lessonTranslations = lesson.translated || [];
       lessonWords.forEach((word, index) => {
         allWords.push({
@@ -555,7 +561,8 @@ function toggleDictionary(entryOrWord, button) {
 function speakWord(word) {
   if (!word) return;
   const utter = new SpeechSynthesisUtterance(word);
-  utter.lang = currentLearningLanguage === "french" ? "fr-FR" : "en-US";
+  const speechLanguages = { english: "en-US", french: "fr-FR", italian: "it-IT" };
+  utter.lang = speechLanguages[currentLearningLanguage] || speechLanguages.english;
   utter.rate = slowMode ? 0.7 : 1.0;
   speechSynthesis.cancel();
   speechSynthesis.speak(utter);
@@ -602,7 +609,7 @@ function generateLevelsMenu() {
   const languageLi = document.createElement("li");
   languageLi.classList.add("menu__nav-item");
   const languageBtn = document.createElement("button");
-  languageBtn.textContent = `Язык изучения: ${currentLearningLanguage === "french" ? "Французский" : "Английский"}`;
+  languageBtn.textContent = `Язык изучения: ${LANGUAGE_LABELS[currentLearningLanguage] || LANGUAGE_LABELS.english}`;
   languageBtn.classList.add("level-btn");
   languageLi.appendChild(languageBtn);
 
@@ -634,8 +641,18 @@ function generateLevelsMenu() {
     await loadLessonsForLanguage("french");
   };
 
+  const italianBtn = document.createElement("button");
+  italianBtn.textContent = currentLearningLanguage === "italian" ? "Итальянский ✓" : "Итальянский";
+  italianBtn.style.display = "block";
+  italianBtn.style.width = "100%";
+  italianBtn.onclick = async () => {
+    if (currentLearningLanguage === "italian") return;
+    await loadLessonsForLanguage("italian");
+  };
+
   languageWindow.appendChild(englishBtn);
   languageWindow.appendChild(frenchBtn);
+  languageWindow.appendChild(italianBtn);
   languageLi.appendChild(languageWindow);
   menu.appendChild(languageLi);
 
@@ -855,7 +872,7 @@ function startLesson(level, lessonKey) {
   const lesson = lessonsDB[level][lessonKey];
   if (!lesson) return;
   const baseWords = lesson.english || lesson.french || [];
-  const fallbackTranslations = lesson.translated || lesson.english || lesson.french || [];
+  const fallbackTranslations = lesson.translated || lesson.english || lesson.french || lesson.italian || [];
 
   currentLesson = { level, lessonKey };
   words = baseWords;
