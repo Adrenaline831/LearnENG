@@ -804,6 +804,7 @@ async function loadLessonsForLanguage(language) {
     localStorage.setItem(LEARNING_LANGUAGE_STORAGE_KEY, selectedLanguage);
     currentLesson = null;
     currentLessonElement = null;
+    updateBlockWordButtonVisibility();
     generateLevelsMenu();
     addSettingsMenu();
   } catch (err) {
