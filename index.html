@@ -60,6 +60,7 @@
       <button onclick="repeatPhase()">Повторить этап</button>
       <button onclick="goToNextPage()">Пропустить этап</button>
       <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
+      <button type="button" class="block-word-btn hidden" onclick="blockCurrentWord()">Заблокировать слово</button>
     </div>
   </div>
 
@@ -79,6 +80,7 @@
         <button onclick="repeatPhase()">Повторить этап</button>
         <button onclick="goToNextPage()">Пропустить этап</button>
         <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
+        <button type="button" class="block-word-btn hidden" onclick="blockCurrentWord()">Заблокировать слово</button>
       </div>
     </div>
   </div>
@@ -99,6 +101,7 @@
         <button onclick="repeatPhase()">Повторить этап</button>
         <button onclick="goToNextPage()">Пропустить этап</button>
         <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
+        <button type="button" class="block-word-btn hidden" onclick="blockCurrentWord()">Заблокировать слово</button>
       </div>
     </div>
   </div>
@@ -112,6 +115,7 @@
       <button id="dictationCheckBtn" onclick="checkDictation()">Проверить</button>
       <button id="dictationNextBtn" onclick="nextDictationAfterError()">Следующее</button>
       <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
+      <button type="button" class="block-word-btn hidden" onclick="blockCurrentWord()">Заблокировать слово</button>
     </div>
     <p id="dictation-feedback"></p>
   </div>
@@ -817,6 +821,65 @@ document.getElementById("menuBtn").addEventListener("click", () => {
 });
 
 /* === Генерация уровней и уроков (единственная версия) === */
+function getRussianWordCount(count) {
+  const mod10 = count % 10, mod100 = count % 100;
+  if (mod100 >= 11 && mod100 <= 14) return "слов";
+  if (mod10 === 1) return "слово";
+  if (mod10 >= 2 && mod10 <= 4) return "слова";
+  return "слов";
+}
+
+async function copyCustomLessonToClipboard(lesson, event) {
+  if (event) event.stopPropagation();
+  const serialized = JSON.stringify(lesson, null, 2);
+  try {
+    await navigator.clipboard.writeText(serialized);
+  } catch (error) {
+    const temporaryInput = document.createElement("textarea");
+    temporaryInput.value = serialized;
+    document.body.appendChild(temporaryInput);
+    temporaryInput.select();
+    const copied = document.execCommand("copy");
+    temporaryInput.remove();
+    if (!copied) { alert("Не удалось скопировать JSON блока."); return; }
+  }
+  alert("JSON блока скопирован в буфер обмена.");
+}
+
+function importCustomLessonFromConsole() {
+  const input = document.getElementById("customLessonConsole");
+  if (!input || !input.value.trim()) return;
+  try {
+    const parsed = JSON.parse(input.value);
+    if (!parsed || typeof parsed !== "object" || !Array.isArray(parsed.words)) {
+      throw new Error("Ожидается JSON блока со списком words.");
+    }
+    const indexedWords = parsed.words.map((word, index) => ({
+      index, word: String(word || "").trim()
+    })).filter(item => item.word);
+    if (indexedWords.length === 0) throw new Error("В JSON нет слов.");
+    const readArray = key => Array.isArray(parsed[key]) ? parsed[key] : [];
+    const imported = {
+      id: `import-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title: String(parsed.title || indexedWords[0].word).trim(),
+      date: String(parsed.date || new Date().toLocaleDateString("ru-RU")),
+      words: indexedWords.map(item => item.word),
+      transcriptions: indexedWords.map(item => String(readArray("transcriptions")[item.index] || "")),
+      translations: indexedWords.map(item => String(readArray("translations")[item.index] || "")),
+      examples: indexedWords.map(item => String(readArray("examples")[item.index] || ""))
+    };
+    const customLessons = getCustomDictionaryLessons();
+    customLessons.unshift(imported);
+    saveCustomDictionaryLessons(customLessons);
+    input.value = "";
+    generateLevelsMenu();
+    addSettingsMenu();
+    alert("Блок добавлен в «Мой словарь».");
+  } catch (error) {
+    alert(`Не удалось импортировать блок: ${error.message}`);
+  }
+}
+
 function generateLevelsMenu() {
   const menu = document.getElementById("menuDropdown");
   menu.innerHTML = "";
@@ -953,9 +1016,21 @@ function generateLevelsMenu() {
   } else {
     customLessons.forEach(lesson => {
       const item = document.createElement("li");
+      item.classList.add("custom-list-row");
       item.style.cursor = "pointer";
-      item.textContent = `${lesson.title} — ${lesson.date}`;
-      item.onclick = () => startCustomLesson(lesson.id);
+      const wordCount = (lesson.words || []).length;
+      const title = document.createElement("span");
+      title.textContent = `${lesson.title} — ${lesson.date} (${wordCount} ${getRussianWordCount(wordCount)})`;
+      item.appendChild(title);
+      const exportButton = document.createElement("button");
+      exportButton.type = "button";
+      exportButton.classList.add("custom-list-export");
+      exportButton.textContent = "⤓";
+      exportButton.title = "Скопировать блок в формате JSON";
+      exportButton.setAttribute("aria-label", "Скопировать блок в формате JSON");
+      exportButton.addEventListener("click", event => copyCustomLessonToClipboard(lesson, event));
+      item.appendChild(exportButton);
+      item.addEventListener("click", () => startCustomLesson(lesson.id));
       customDictSubmenu.appendChild(item);
     });
   }
@@ -1038,6 +1113,48 @@ function addSettingsMenu() {
   repeatBtn.onclick = startRepeatLesson;
   repeatLi.appendChild(repeatBtn);
   settingsSubmenu.appendChild(repeatLi);
+
+  const blockEditingLi = document.createElement("li");
+  const blockEditingBtn = document.createElement("button");
+  const syncBlockEditingLabel = () => {
+    const enabled = isBlockEditingEnabled();
+    blockEditingBtn.textContent = `Вкл/выкл редактирование блоков: ${enabled ? "ВКЛ" : "ВЫКЛ"}`;
+    blockEditingBtn.setAttribute("aria-pressed", String(enabled));
+  };
+  blockEditingBtn.style.display = "block";
+  blockEditingBtn.style.width = "100%";
+  blockEditingBtn.style.marginTop = "6px";
+  syncBlockEditingLabel();
+  blockEditingBtn.onclick = () => {
+    localStorage.setItem(BLOCK_EDITING_STORAGE_KEY, String(!isBlockEditingEnabled()));
+    syncBlockEditingLabel();
+    updateBlockWordButtonVisibility();
+  };
+  blockEditingLi.appendChild(blockEditingBtn);
+  settingsSubmenu.appendChild(blockEditingLi);
+
+  const consoleLi = document.createElement("li");
+  const consoleLabel = document.createElement("label");
+  consoleLabel.textContent = "Консоль (промокод)";
+  consoleLabel.htmlFor = "customLessonConsole";
+  consoleLabel.style.display = "block";
+  consoleLabel.style.marginTop = "10px";
+  const consoleInput = document.createElement("textarea");
+  consoleInput.id = "customLessonConsole";
+  consoleInput.rows = 5;
+  consoleInput.placeholder = "Вставьте JSON блока слов";
+  consoleInput.style.width = "100%";
+  consoleInput.addEventListener("paste", () => setTimeout(importCustomLessonFromConsole, 0));
+  const importButton = document.createElement("button");
+  importButton.type = "button";
+  importButton.textContent = "Добавить блок";
+  importButton.style.display = "block";
+  importButton.style.width = "100%";
+  importButton.onclick = importCustomLessonFromConsole;
+  consoleLi.appendChild(consoleLabel);
+  consoleLi.appendChild(consoleInput);
+  consoleLi.appendChild(importButton);
+  settingsSubmenu.appendChild(consoleLi);
 
   const themesWindow = document.createElement("div");
   themesWindow.style.display = "none";
