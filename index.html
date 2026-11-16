@@ -282,9 +282,14 @@ function savePullExamplesFlag(value) {
 }
 
 function updateExampleVisibility() {
+  const wordEdits = getWordEdits();
   document.querySelectorAll(".example").forEach(example => {
+    const index = Number(example.dataset.wordIndex);
+    const origin = Number.isInteger(index) ? (wordOrigins[index] || words[index] || "") : "";
+    const edit = wordEdits[normalizeWordKey(origin)];
+    const hasPersonalExample = Boolean(edit && Object.prototype.hasOwnProperty.call(edit, "example"));
     const hasExampleText = Boolean(example.textContent.trim());
-    example.classList.toggle("hidden", !pullExamplesFromJSON || !hasExampleText);
+    example.classList.toggle("hidden", !hasExampleText || (!pullExamplesFromJSON && !hasPersonalExample));
   });
 }
 
@@ -1241,8 +1246,7 @@ function addSettingsMenu() {
     savePullExamplesFlag(pullExamplesFromJSON);
     syncResetButtonLabel();
     if (!pullExamplesFromJSON) {
-      examples = words.map(() => "");
-      alert("Примеры отключены: в уроках будут пустые примеры.");
+      alert("Примеры из списков скрыты. Примеры, отредактированные вручную, остаются видимыми.");
     } else {
       alert("Примеры снова включены и будут браться из JSON.");
     }
@@ -1274,7 +1278,7 @@ function addSettingsMenu() {
   const consoleInput = document.createElement("textarea");
   consoleInput.id = "customLessonConsole";
   consoleInput.rows = 5;
-  consoleInput.placeholder = "Консоль (промокод) — вставьте JSON блока и нажмите Enter";
+  consoleInput.placeholder = "Консоль. Вставьте блок слов/команду и  нажмите Enter";
   consoleInput.style.width = "100%";
   consoleInput.style.marginTop = "8px";
   consoleInput.addEventListener("keydown", event => {
@@ -1582,7 +1586,9 @@ function showNextCard(correct = true) {
        <button id="addToDictionaryBtnDynamic" class="dictionary-btn" aria-label="Добавить в избранное">${isInDictionary(word) ? "★" : "☆"}</button>
        ${returnHomeButtonMarkup()}
      </span>`;
-  document.getElementById("cardExample").textContent = examples[i] || "";
+  const cardExample = document.getElementById("cardExample");
+  cardExample.dataset.wordIndex = String(i);
+  cardExample.textContent = examples[i] || "";
   updateExampleVisibility();
 
   document.getElementById("speakBtn").onclick = () => speakWord(word);
@@ -1613,7 +1619,9 @@ function showPhase2() {
        <button id="addToDictionaryBtnPhase2" class="dictionary-btn" aria-label="Добавить в избранное">${isInDictionary(word) ? "★" : "☆"}</button>
        ${returnHomeButtonMarkup()}
      </span>`;
-  document.getElementById("phase2-example").textContent = examples[i] || "";
+  const phase2Example = document.getElementById("phase2-example");
+  phase2Example.dataset.wordIndex = String(i);
+  phase2Example.textContent = examples[i] || "";
   updateExampleVisibility();
   document.getElementById("speakPhase2PromptBtn").onclick = () => speakWord(word);
   const phase2DictionaryBtn = document.getElementById("addToDictionaryBtnPhase2");
@@ -1660,7 +1668,9 @@ function showPhase3() {
        <button id="addToDictionaryBtnPhase3" class="dictionary-btn" aria-label="Добавить в избранное">${isInDictionary(word) ? "★" : "☆"}</button>
        ${returnHomeButtonMarkup()}
      </span>`;
-  document.getElementById("phase3-example").textContent = examples[i] || "";
+  const phase3Example = document.getElementById("phase3-example");
+  phase3Example.dataset.wordIndex = String(i);
+  phase3Example.textContent = examples[i] || "";
   updateExampleVisibility();
   document.getElementById("speakPhase3PromptBtn").onclick = () => speakWord(word);
   const phase3DictionaryBtn = document.getElementById("addToDictionaryBtnPhase3");
@@ -1707,8 +1717,7 @@ function goToNextPage() {
 }
 
 function repeatPhase() {
-  if (currentPhase > 3) startPhase(currentPhase - 1);
-  else startPhase(3);
+  if (currentPhase >= 3 && currentPhase <= 6) startPhase(currentPhase);
 }
 
 function finishLesson() {
@@ -1807,7 +1816,9 @@ function showNextDictationWord() {
        <button id="addToDictionaryBtnDictation" class="dictionary-btn" aria-label="Добавить в избранное">${isInDictionary(word) ? "★" : "☆"}</button>
        ${returnHomeButtonMarkup()}
      </span>`;
-  document.getElementById("dictation-example").textContent = examples[currentIndex] || "";
+  const dictationExample = document.getElementById("dictation-example");
+  dictationExample.dataset.wordIndex = String(currentIndex);
+  dictationExample.textContent = examples[currentIndex] || "";
   updateExampleVisibility();
   document.getElementById("speakDictationPromptBtn").onclick = () => speakWord(word);
   const dictationDictionaryBtn = document.getElementById("addToDictionaryBtnDictation");
