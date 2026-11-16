@@ -847,7 +847,7 @@ async function copyCustomLessonToClipboard(lesson, event) {
     temporaryInput.remove();
     if (!copied) { alert("Не удалось скопировать JSON блока."); return; }
   }
-  alert("JSON блока скопирован в буфер обмена.");
+  alert("Блок скопирован в буфер обмена. Поделитесь им с другом!\nДобавить этот же блок можно через консоль в настройках.");
 }
 
 function importCustomLessonFromConsole() {
@@ -882,6 +882,15 @@ function importCustomLessonFromConsole() {
   } catch (error) {
     alert(`Не удалось импортировать блок: ${error.message}`);
   }
+}
+
+function closeAllMenuFolders(except = null) {
+  document.querySelectorAll("#menuDropdown .submenu").forEach(folder => {
+    if (folder !== except) folder.style.display = "none";
+  });
+  document.querySelectorAll("#menuDropdown > li > div").forEach(folder => {
+    if (folder !== except) folder.style.display = "none";
+  });
 }
 
 function generateLevelsMenu() {
@@ -941,7 +950,7 @@ function generateLevelsMenu() {
 
   languageBtn.addEventListener("click", () => {
     const isShown = languageWindow.style.display === "block";
-    document.querySelectorAll("#menuDropdown > li > div").forEach(div => div.style.display = "none");
+    closeAllMenuFolders();
     languageWindow.style.display = isShown ? "none" : "block";
   });
 
@@ -990,7 +999,7 @@ function generateLevelsMenu() {
 
     btn.addEventListener("click", () => {
       const isShown = ul.style.display === "block";
-      document.querySelectorAll(".submenu").forEach(sub => sub.style.display = "none");
+      closeAllMenuFolders();
       ul.style.display = isShown ? "none" : "block";
     });
   });
@@ -1043,9 +1052,19 @@ function generateLevelsMenu() {
   menu.appendChild(customDictLi);
   customDictBtn.addEventListener("click", () => {
     const isShown = customDictSubmenu.style.display === "block";
-    document.querySelectorAll(".submenu").forEach(sub => sub.style.display = "none");
+    closeAllMenuFolders();
     customDictSubmenu.style.display = isShown ? "none" : "block";
   });
+
+  const repeatLi = document.createElement("li");
+  repeatLi.classList.add("menu__nav-item");
+  const repeatMenuBtn = document.createElement("button");
+  repeatMenuBtn.classList.add("level-btn");
+  repeatMenuBtn.innerHTML = 'Повторение <em>(30 слов)</em>';
+  repeatMenuBtn.style.textAlign = "left";
+  repeatMenuBtn.onclick = startRepeatLesson;
+  repeatLi.appendChild(repeatMenuBtn);
+  menu.appendChild(repeatLi);
 }
 /* === Настройки (единая версия) === */
 function addSettingsMenu() {
@@ -1074,17 +1093,23 @@ function addSettingsMenu() {
   settingsSubmenu.style.margin = "0";
   settingsSubmenu.style.padding = "0";
 
+  const themesLi = document.createElement("li");
+  const goToThemesBtn = document.createElement("button");
+  goToThemesBtn.textContent = "Сменить тему";
+  goToThemesBtn.style.display = "block";
+  goToThemesBtn.style.width = "100%";
+  themesLi.appendChild(goToThemesBtn);
+  settingsSubmenu.appendChild(themesLi);
+
   const examplesLi = document.createElement("li");
   const resetBtn = document.createElement("button");
   const syncResetButtonLabel = () => {
-    resetBtn.textContent = pullExamplesFromJSON
-      ? "Сброс примеров"
-      : "Вернуть примеры";
+    resetBtn.textContent = pullExamplesFromJSON ? "Убрать примеры" : "Вернуть примеры";
   };
   syncResetButtonLabel();
   resetBtn.style.display = "block";
   resetBtn.style.width = "100%";
-  resetBtn.style.marginBottom = "5px";
+  resetBtn.style.marginTop = "6px";
   resetBtn.onclick = () => {
     pullExamplesFromJSON = !pullExamplesFromJSON;
     savePullExamplesFlag(pullExamplesFromJSON);
@@ -1100,29 +1125,11 @@ function addSettingsMenu() {
   examplesLi.appendChild(resetBtn);
   settingsSubmenu.appendChild(examplesLi);
 
-  const themesLi = document.createElement("li");
-  const goToThemesBtn = document.createElement("button");
-  goToThemesBtn.textContent = "Перейти к темам";
-  goToThemesBtn.style.display = "block";
-  goToThemesBtn.style.width = "100%";
-  themesLi.appendChild(goToThemesBtn);
-  settingsSubmenu.appendChild(themesLi);
-
-  const repeatLi = document.createElement("li");
-  const repeatBtn = document.createElement("button");
-  repeatBtn.textContent = "Повторение (30 слов)";
-  repeatBtn.style.display = "block";
-  repeatBtn.style.width = "100%";
-  repeatBtn.style.marginTop = "6px";
-  repeatBtn.onclick = startRepeatLesson;
-  repeatLi.appendChild(repeatBtn);
-  settingsSubmenu.appendChild(repeatLi);
-
   const blockEditingLi = document.createElement("li");
   const blockEditingBtn = document.createElement("button");
   const syncBlockEditingLabel = () => {
     const enabled = isBlockEditingEnabled();
-    blockEditingBtn.textContent = `Вкл/выкл редактирование блоков: ${enabled ? "ВКЛ" : "ВЫКЛ"}`;
+    blockEditingBtn.textContent = enabled ? "Выкл редактирование блоков" : "Вкл редактирование блоков";
     blockEditingBtn.setAttribute("aria-pressed", String(enabled));
   };
   blockEditingBtn.style.display = "block";
@@ -1138,26 +1145,19 @@ function addSettingsMenu() {
   settingsSubmenu.appendChild(blockEditingLi);
 
   const consoleLi = document.createElement("li");
-  const consoleLabel = document.createElement("label");
-  consoleLabel.textContent = "Консоль (промокод)";
-  consoleLabel.htmlFor = "customLessonConsole";
-  consoleLabel.style.display = "block";
-  consoleLabel.style.marginTop = "10px";
   const consoleInput = document.createElement("textarea");
   consoleInput.id = "customLessonConsole";
   consoleInput.rows = 5;
-  consoleInput.placeholder = "Вставьте JSON блока слов";
+  consoleInput.placeholder = "Консоль (промокод) — вставьте JSON блока и нажмите Enter";
   consoleInput.style.width = "100%";
-  consoleInput.addEventListener("paste", () => setTimeout(importCustomLessonFromConsole, 0));
-  const importButton = document.createElement("button");
-  importButton.type = "button";
-  importButton.textContent = "Добавить блок";
-  importButton.style.display = "block";
-  importButton.style.width = "100%";
-  importButton.onclick = importCustomLessonFromConsole;
-  consoleLi.appendChild(consoleLabel);
+  consoleInput.style.marginTop = "8px";
+  consoleInput.addEventListener("keydown", event => {
+    if (event.key === "Enter" && !event.shiftKey) {
+      event.preventDefault();
+      importCustomLessonFromConsole();
+    }
+  });
   consoleLi.appendChild(consoleInput);
-  consoleLi.appendChild(importButton);
   settingsSubmenu.appendChild(consoleLi);
 
   const themesWindow = document.createElement("div");
@@ -1166,7 +1166,6 @@ function addSettingsMenu() {
   themesWindow.style.padding = "8px";
   themesWindow.style.background = "rgba(0,0,0,0.08)";
   themesWindow.style.borderRadius = "8px";
-  settingsWindow.appendChild(themesWindow);
 
   const renderThemeButtons = () => {
     themesWindow.innerHTML = "";
@@ -1189,16 +1188,17 @@ function addSettingsMenu() {
   };
 
   settingsWindow.appendChild(settingsSubmenu);
-
+  settingsWindow.appendChild(themesWindow);
   settingsLi.appendChild(settingsWindow);
   menu.appendChild(settingsLi);
 
   settingsBtn.addEventListener("click", () => {
     const isShown = settingsWindow.style.display === "block";
-    document.querySelectorAll("#menuDropdown > li > div").forEach(div => div.style.display = "none");
+    closeAllMenuFolders();
     settingsWindow.style.display = isShown ? "none" : "block";
     if (!isShown) {
       syncResetButtonLabel();
+      syncBlockEditingLabel();
       renderThemeButtons();
     }
   });
