@@ -926,3 +926,10 @@ input::placeholder {
 .word-editor-actions button {
   width: auto;
 }
+
+
+/* Center menu, settings, and level button labels */
+.menu__btn,
+.level-btn {
+  text-align: center;
+}
