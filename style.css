@@ -933,3 +933,9 @@ input::placeholder {
 .level-btn {
   text-align: center;
 }
+
+
+/* Keep folder labels aligned with the left edge of their buttons */
+.menu-folder-label {
+  text-align: left !important;
+}
