@@ -149,6 +149,7 @@ let currentTheme = "theme-classic-dark";
 let currentLearningLanguage = "english";
 let historyNavigationEnabled = false;
 let suppressPopStateHandler = false;
+let currentWordSource = "manual";
 
 /* === LocalStorage: словарь и завершённые уроки === */
 const LOCAL_STORAGE_KEY = "myDictionary";
@@ -158,6 +159,8 @@ const THEME_STORAGE_KEY = "selectedTheme";
 const EXAMPLE_MODE_STORAGE_KEY = "pullExamplesFromJSON";
 const LEARNING_LANGUAGE_STORAGE_KEY = "learningLanguage";
 const LEARNING_PROGRESS_STORAGE_KEY = "learningProgressState";
+const BLOCKED_WORDS_STORAGE_KEY_PREFIX = "blockedWords";
+const BLOCK_EDITING_STORAGE_KEY = "blockWordEditingEnabled";
 const REPEAT_LESSON_WORDS_COUNT = 30;
 const IGNORANCE_INDEX_SHARE = 0.35;
 const WORD_KNOWLEDGE_STORAGE_KEY_PREFIX = "wordKnowledgeIndex";
@@ -309,6 +312,89 @@ function getWordKnowledgeStorageKey() {
   return `${WORD_KNOWLEDGE_STORAGE_KEY_PREFIX}_${currentLearningLanguage}`;
 }
 
+function getBlockedWordsStorageKey() {
+  return `${BLOCKED_WORDS_STORAGE_KEY_PREFIX}_${currentLearningLanguage}`;
+}
+
+function getBlockedWords() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(getBlockedWordsStorageKey()) || "[]");
+    if (!Array.isArray(stored)) return [];
+    return [...new Set(stored.map(word => String(word || "").trim()).filter(Boolean))];
+  } catch (error) {
+    console.error("Не удалось прочитать заблокированные слова:", error);
+    return [];
+  }
+}
+
+function getBlockedWordKeys() {
+  return new Set(getBlockedWords().map(normalizeWordKey));
+}
+
+function isBlockEditingEnabled() {
+  return localStorage.getItem(BLOCK_EDITING_STORAGE_KEY) === "true";
+}
+
+function shouldShowBlockWordButton() {
+  const isSupportedBuiltInContext = currentWordSource === "builtIn" &&
+    ["french", "spanish"].includes(currentLearningLanguage) && currentLesson &&
+    /^(A1|A2|B1|B2|C1|C2)$/i.test(String(currentLesson.level || ""));
+  return isBlockEditingEnabled() || isSupportedBuiltInContext;
+}
+
+function updateBlockWordButtonVisibility() {
+  const visible = currentPhase >= 3 && currentPhase <= 6 && shouldShowBlockWordButton();
+  document.querySelectorAll(".block-word-btn").forEach(button => {
+    button.classList.toggle("hidden", !visible);
+  });
+}
+
+function filterBlockedWordsFromCurrentList() {
+  const blocked = getBlockedWordKeys();
+  const keepIndexes = words.map((word, index) => ({ word, index }))
+    .filter(item => !blocked.has(normalizeWordKey(item.word)))
+    .map(item => item.index);
+  const filterByIndexes = values => keepIndexes.map(index => values[index] ?? "");
+  words = filterByIndexes(words);
+  transcriptions = filterByIndexes(transcriptions);
+  translations = filterByIndexes(translations);
+  examples = filterByIndexes(examples);
+}
+
+function blockCurrentWord() {
+  const activeIndex = currentPhase === 6 ? dictationQueue[0] : phaseQueue[0];
+  if (!Number.isInteger(activeIndex)) return;
+  const blockedWord = String(words[activeIndex] || "").trim();
+  const blockedKey = normalizeWordKey(blockedWord);
+  if (!blockedKey) return;
+
+  const blockedWords = getBlockedWords();
+  if (!blockedWords.some(word => normalizeWordKey(word) === blockedKey)) {
+    blockedWords.push(blockedWord);
+    localStorage.setItem(getBlockedWordsStorageKey(), JSON.stringify(blockedWords));
+  }
+
+  const keepIndexes = words.map((word, index) => ({ word, index }))
+    .filter(item => normalizeWordKey(item.word) !== blockedKey);
+  const newIndexByOldIndex = new Map(keepIndexes.map((item, index) => [item.index, index]));
+  const filterByIndexes = values => keepIndexes.map(item => values[item.index] ?? "");
+  words = filterByIndexes(words);
+  transcriptions = filterByIndexes(transcriptions);
+  translations = filterByIndexes(translations);
+  examples = filterByIndexes(examples);
+  const remapQueue = queue => queue.map(index => newIndexByOldIndex.get(index)).filter(Number.isInteger);
+  phaseQueue = remapQueue(phaseQueue);
+  dictationQueue = remapQueue(dictationQueue);
+  currentIndex = newIndexByOldIndex.get(currentIndex) ?? phaseQueue[0] ?? dictationQueue[0] ?? 0;
+  updateProgress();
+  saveLearningProgress();
+
+  if (currentPhase === 3) showNextCard(null);
+  else if (currentPhase === 4) showPhase2();
+  else if (currentPhase === 5) showPhase3();
+  else if (currentPhase === 6) showNextDictationWord();
+}
+
 function getWordKnowledge() {
   try {
     const parsed = JSON.parse(localStorage.getItem(getWordKnowledgeStorageKey()) || "[]");
@@ -410,6 +496,7 @@ function collectWordsFromFinishedLessons() {
 }
 
 function buildWordPoolForRepeatLesson() {
+  const blockedKeys = getBlockedWordKeys();
   const favorites = getMyDictionary().map(normalizeDictionaryEntry);
   const customLessons = getCustomDictionaryLessons();
   const sources = {
@@ -434,7 +521,7 @@ function buildWordPoolForRepeatLesson() {
     const seen = new Set();
     sources[source] = sources[source].filter(entry => {
       const key = normalizeWordKey(entry.word);
-      if (!key || seen.has(key)) return false;
+      if (!key || blockedKeys.has(key) || seen.has(key)) return false;
       seen.add(key);
       return true;
     });
@@ -550,10 +637,13 @@ function startRepeatLesson() {
   const foundExamples = entries.map(entry => entry.example);
 
   currentLesson = null;
+  currentWordSource = "repeat";
   words = foundWords;
   transcriptions = foundTranscriptions;
   translations = foundTranslations;
   examples = foundExamples;
+  filterBlockedWordsFromCurrentList();
+  if (words.length === 0) { alert("Нет незаблокированных слов для повторения."); return; }
   currentPhase = 3;
   currentIndex = 0;
   wrongQueue = [];
@@ -584,6 +674,7 @@ function saveLearningProgress() {
     dictationQueue,
     dictationWaiting,
     currentLesson,
+    currentWordSource,
     visiblePage: getCurrentVisiblePageId()
   };
   localStorage.setItem(LEARNING_PROGRESS_STORAGE_KEY, JSON.stringify(payload));
@@ -618,6 +709,7 @@ function restoreLearningProgress() {
     dictationQueue = Array.isArray(state.dictationQueue) ? state.dictationQueue : words.map((_, i) => i);
     dictationWaiting = Boolean(state.dictationWaiting);
     currentLesson = state.currentLesson || null;
+    currentWordSource = state.currentWordSource || (currentLesson ? "builtIn" : "manual");
 
     if (currentPhase >= 3 && currentPhase <= 6) {
       hideAllPages();
@@ -999,10 +1091,13 @@ function startLesson(level, lessonKey) {
   const fallbackTranslations = lesson.translated || lesson.english || lesson.french || lesson.italian || [];
 
   currentLesson = { level, lessonKey };
+  currentWordSource = "builtIn";
   words = baseWords;
   transcriptions = lesson.transcriptions || [];
   translations = fallbackTranslations;
   examples = pullExamplesFromJSON ? (lesson.example || []) : words.map(() => "");
+  filterBlockedWordsFromCurrentList();
+  if (words.length === 0) { alert("Все слова этого блока заблокированы."); return; }
   currentPhase = 3;
   currentIndex = 0;
   wrongQueue = [];
@@ -1013,6 +1108,7 @@ function startLesson(level, lessonKey) {
 
 /* === Запуск урока из словаря === */
 function startDictionaryLesson() {
+  currentWordSource = "favorites";
   const dict = getMyDictionary();
   if (dict.length === 0) { alert("Ваш словарь пуст."); return; }
 let foundWords = [], foundTrans = [], foundTransl = [], foundExamples = [];
@@ -1059,6 +1155,8 @@ let foundWords = [], foundTrans = [], foundTransl = [], foundExamples = [];
   transcriptions = foundTrans;
   translations = foundTransl;
   examples = foundExamples;
+  filterBlockedWordsFromCurrentList();
+  if (words.length === 0) { alert("В избранном нет доступных слов для изучения."); return; }
   currentPhase = 3;
   currentIndex = 0;
   wrongQueue = [];
@@ -1094,10 +1192,13 @@ function startCustomLesson(lessonId) {
   }
 
   currentLesson = null;
+  currentWordSource = "custom";
   words = lesson.words || [];
   transcriptions = lesson.transcriptions || words.map(() => "");
   translations = lesson.translations || words.map(() => "");
   examples = lesson.examples || words.map(() => "");
+  filterBlockedWordsFromCurrentList();
+  if (words.length === 0) { alert("В этом списке нет доступных слов для изучения."); return; }
   currentPhase = 3;
   currentIndex = 0;
   wrongQueue = [];
@@ -1138,11 +1239,14 @@ function goToTranslations() {
 }
 
 function startSelfLearning() {
+  currentWordSource = "custom";
   const rawTransl = document.getElementById("translatedWords").value.trim();
   if (!rawTransl) { alert("Введите переводы"); return; }
   translations = rawTransl.split("\n").map(s => s.trim());
   if (translations.length !== words.length) { alert("Количество переводов должно совпадать с количеством слов"); return; }
   examples = words.map(() => "");
+  filterBlockedWordsFromCurrentList();
+  if (words.length === 0) { alert("Все введённые слова заблокированы."); return; }
   createCustomDictionaryLesson();
   currentPhase = 3;
 currentIndex = 0;
@@ -1178,6 +1282,7 @@ function startPhase(phase) {
   else if (phase === 4) showPhase2();
   else if (phase === 5) showPhase3();
   else if (phase === 6) startDictationPhase();
+  updateBlockWordButtonVisibility();
   saveLearningProgress();
 }
 
@@ -1202,6 +1307,7 @@ function updateProgress() {
 
 /* === Фаза 3 (карточки) === */
 function showNextCard(correct = true) {
+  updateBlockWordButtonVisibility();
   if (phaseQueue.length > 0 && correct !== null) {
     recordWordKnowledgeAnswer(words[phaseQueue[0]], correct);
     if (correct) phaseQueue.shift();
@@ -1237,6 +1343,7 @@ function showNextCard(correct = true) {
 
 /* === Фаза 4 === */
 function showPhase2() {
+  updateBlockWordButtonVisibility();
   if (phaseQueue.length === 0) { goToNextPage(); return; }
   document.getElementById("page4").classList.remove("hidden");
   document.getElementById("answerSection").classList.add("hidden");
@@ -1269,18 +1376,7 @@ function showAnswer() {
   const answerContainer = document.getElementById("answerSection");
   document.getElementById("phase2-answer").textContent = `${translations[i] || ""}`;
  answerContainer.classList.remove("hidden");
-
-  let btn = document.getElementById("speakPhase4Btn");
-  if (!btn) {
-    btn = document.createElement("button");
-    btn.id = "speakPhase4Btn";
-    btn.textContent = "🔊";
-    btn.className = "icon-btn";
-    answerContainer.appendChild(btn);
-  }
-  btn.onclick = () => speakWord(words[i]);
 }
-
 function markAnswer(correct) {
   if (phaseQueue.length > 0) {
     recordWordKnowledgeAnswer(words[phaseQueue[0]], correct);
@@ -1294,6 +1390,7 @@ function markAnswer(correct) {
 
 /* === Фаза 5 === */
 function showPhase3() {
+  updateBlockWordButtonVisibility();
   if (phaseQueue.length === 0) { goToNextPage(); return; }
   document.getElementById("page5").classList.remove("hidden");
   document.getElementById("answerSection3").classList.add("hidden");
@@ -1326,18 +1423,7 @@ function showAnswer3() {
   const answerContainer = document.getElementById("answerSection3");
   document.getElementById("phase3-answer").textContent = formatWordWithTranscription(words[i], transcriptions[i]);
  answerContainer.classList.remove("hidden");
-
-  let btn = document.getElementById("speakPhase5Btn");
-  if (!btn) {
-    btn = document.createElement("button");
-    btn.id = "speakPhase5Btn";
-    btn.textContent = "🔊";
-    btn.className = "icon-btn";
-    answerContainer.appendChild(btn);
-  }
-  btn.onclick = () => speakWord(words[i]);
 }
-
 function markAnswer3(correct) {
   if (phaseQueue.length > 0) {
     recordWordKnowledgeAnswer(words[phaseQueue[0]], correct);
@@ -1440,6 +1526,7 @@ function startDictationPhase() {
 }
 
 function showNextDictationWord() {
+  updateBlockWordButtonVisibility();
   if (!dictationQueue || dictationQueue.length === 0) {
     finishLesson();
     return;
