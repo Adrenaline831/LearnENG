@@ -485,7 +485,8 @@ button:disabled {
 #showAnswerBtn3,
 button[onclick="repeatPhase()"],
 button[onclick="goToNextPage()"],
-#dictationNextBtn {
+#dictationNextBtn,
+.block-word-btn {
   background: var(--button-secondary-bg);
   color: var(--button-secondary-text);
   border: 1px solid rgba(32, 86, 48, 0.2);
@@ -496,7 +497,8 @@ button[onclick="goToNextPage()"],
 #showAnswerBtn3:hover,
 button[onclick="repeatPhase()"]:hover,
 button[onclick="goToNextPage()"]:hover,
-#dictationNextBtn:hover {
+#dictationNextBtn:hover,
+.block-word-btn:hover {
   background: var(--button-secondary-hover);
 }
 
@@ -853,4 +855,28 @@ input::placeholder {
   .phase-actions {
     width: 100%;
   }
+}
+
+/* === Локальные блоки и блокировка слов === */
+.custom-list-row {
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.custom-list-row > span {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.custom-list-row button.custom-list-export {
+  flex: 0 0 36px;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  margin: 0;
+  padding: 0;
+  border-radius: 10px;
 }
