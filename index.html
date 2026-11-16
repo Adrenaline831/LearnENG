@@ -154,6 +154,7 @@ let currentLearningLanguage = "english";
 let historyNavigationEnabled = false;
 let suppressPopStateHandler = false;
 let currentWordSource = "manual";
+let wordOrigins = [];
 
 /* === LocalStorage: словарь и завершённые уроки === */
 const LOCAL_STORAGE_KEY = "myDictionary";
@@ -164,6 +165,7 @@ const EXAMPLE_MODE_STORAGE_KEY = "pullExamplesFromJSON";
 const LEARNING_LANGUAGE_STORAGE_KEY = "learningLanguage";
 const LEARNING_PROGRESS_STORAGE_KEY = "learningProgressState";
 const BLOCKED_WORDS_STORAGE_KEY_PREFIX = "blockedWords";
+const WORD_EDITS_STORAGE_KEY_PREFIX = "wordEdits";
 const BLOCK_EDITING_STORAGE_KEY = "blockWordEditingEnabled";
 const REPEAT_LESSON_WORDS_COUNT = 30;
 const IGNORANCE_INDEX_SHARE = 0.35;
@@ -320,6 +322,10 @@ function getBlockedWordsStorageKey() {
   return `${BLOCKED_WORDS_STORAGE_KEY_PREFIX}_${currentLearningLanguage}`;
 }
 
+function getWordEditsStorageKey() {
+  return `${WORD_EDITS_STORAGE_KEY_PREFIX}_${currentLearningLanguage}`;
+}
+
 function getBlockedWords() {
   try {
     const stored = JSON.parse(localStorage.getItem(getBlockedWordsStorageKey()) || "[]");
@@ -333,6 +339,20 @@ function getBlockedWords() {
 
 function getBlockedWordKeys() {
   return new Set(getBlockedWords().map(normalizeWordKey));
+}
+
+function getWordEdits() {
+  try {
+    const edits = JSON.parse(localStorage.getItem(getWordEditsStorageKey()) || "{}");
+    return edits && typeof edits === "object" && !Array.isArray(edits) ? edits : {};
+  } catch (error) {
+    console.error("Не удалось прочитать личные изменения слов:", error);
+    return {};
+  }
+}
+
+function saveWordEdits(edits) {
+  localStorage.setItem(getWordEditsStorageKey(), JSON.stringify(edits));
 }
 
 function isBlockEditingEnabled() {
@@ -355,51 +375,136 @@ function updateBlockWordButtonVisibility() {
 }
 
 function filterBlockedWordsFromCurrentList() {
-  const blocked = getBlockedWordKeys();
-  const keepIndexes = words.map((word, index) => ({ word, index }))
-    .filter(item => !blocked.has(normalizeWordKey(item.word)))
-    .map(item => item.index);
-  const filterByIndexes = values => keepIndexes.map(index => values[index] ?? "");
-  words = filterByIndexes(words);
-  transcriptions = filterByIndexes(transcriptions);
-  translations = filterByIndexes(translations);
-  examples = filterByIndexes(examples);
-}
-
-function blockCurrentWord() {
-  const activeIndex = currentPhase === 6
-    ? (dictationWaiting ? currentIndex : dictationQueue[0])
-    : phaseQueue[0];
-  if (!Number.isInteger(activeIndex)) return;
-  const blockedWord = String(words[activeIndex] || "").trim();
-  const blockedKey = normalizeWordKey(blockedWord);
-  if (!blockedKey) return;
-
-  const blockedWords = getBlockedWords();
-  if (!blockedWords.some(word => normalizeWordKey(word) === blockedKey)) {
-    blockedWords.push(blockedWord);
-    localStorage.setItem(getBlockedWordsStorageKey(), JSON.stringify(blockedWords));
+  const originalWords = [...words];
+  const originalTranscriptions = [...transcriptions];
+  const originalTranslations = [...translations];
+  const originalExamples = [...examples];
+  if (wordOrigins.length !== originalWords.length) {
+    wordOrigins = originalWords.map(word => String(word || ""));
   }
 
-  const keepIndexes = words.map((word, index) => ({ word, index }))
-    .filter(item => normalizeWordKey(item.word) !== blockedKey);
+  const blocked = getBlockedWordKeys();
+  const edits = getWordEdits();
+  const keepIndexes = [];
+
+  originalWords.forEach((word, index) => {
+    const origin = String(wordOrigins[index] || word || "");
+    const key = normalizeWordKey(origin);
+    const edit = edits[key];
+    if (!key || blocked.has(key) || edit?.deleted) return;
+
+    if (edit) {
+      if (Object.prototype.hasOwnProperty.call(edit, "word")) words[index] = edit.word;
+      if (Object.prototype.hasOwnProperty.call(edit, "translation")) translations[index] = edit.translation;
+      if (Object.prototype.hasOwnProperty.call(edit, "transcription")) transcriptions[index] = edit.transcription;
+      if (Object.prototype.hasOwnProperty.call(edit, "example")) examples[index] = edit.example;
+    }
+    keepIndexes.push(index);
+  });
+
+  words = keepIndexes.map(index => words[index] ?? originalWords[index]);
+  transcriptions = keepIndexes.map(index => transcriptions[index] ?? originalTranscriptions[index] ?? "");
+  translations = keepIndexes.map(index => translations[index] ?? originalTranslations[index] ?? "");
+  examples = keepIndexes.map(index => examples[index] ?? originalExamples[index] ?? "");
+  wordOrigins = keepIndexes.map(index => wordOrigins[index] || originalWords[index]);
+}
+
+function getCurrentActiveWordIndex() {
+  if (currentPhase === 6) return dictationWaiting ? currentIndex : dictationQueue[0];
+  return phaseQueue[0];
+}
+
+function remapWordQueuesAfterRemoval(keepIndexes) {
   const newIndexByOldIndex = new Map(keepIndexes.map((item, index) => [item.index, index]));
-  const filterByIndexes = values => keepIndexes.map(item => values[item.index] ?? "");
-  words = filterByIndexes(words);
-  transcriptions = filterByIndexes(transcriptions);
-  translations = filterByIndexes(translations);
-  examples = filterByIndexes(examples);
   const remapQueue = queue => queue.map(index => newIndexByOldIndex.get(index)).filter(Number.isInteger);
   phaseQueue = remapQueue(phaseQueue);
   dictationQueue = remapQueue(dictationQueue);
   currentIndex = newIndexByOldIndex.get(currentIndex) ?? phaseQueue[0] ?? dictationQueue[0] ?? 0;
-  updateProgress();
-  saveLearningProgress();
+}
+
+function removeWordOriginFromCurrentSet(originKey) {
+  const keepIndexes = words.map((word, index) => ({
+    word,
+    index,
+    origin: wordOrigins[index] || word
+  })).filter(item => normalizeWordKey(item.origin) !== originKey);
+
+  remapWordQueuesAfterRemoval(keepIndexes);
+  words = keepIndexes.map(item => words[item.index] ?? "");
+  transcriptions = keepIndexes.map(item => transcriptions[item.index] ?? "");
+  translations = keepIndexes.map(item => translations[item.index] ?? "");
+  examples = keepIndexes.map(item => examples[item.index] ?? "");
+  wordOrigins = keepIndexes.map(item => wordOrigins[item.index] || item.word);
 
   if (currentPhase === 3) showNextCard(null);
   else if (currentPhase === 4) showPhase2();
   else if (currentPhase === 5) showPhase3();
   else if (currentPhase === 6) showNextDictationWord();
+  if (getCurrentVisiblePageId() !== "finishPage") saveLearningProgress();
+}
+
+function openWordEditor() {
+  const index = getCurrentActiveWordIndex();
+  if (!Number.isInteger(index)) return;
+  const dialog = document.getElementById("wordEditorDialog");
+  if (!dialog) return;
+
+  dialog.dataset.wordIndex = String(index);
+  document.getElementById("wordEditorWord").value = words[index] || "";
+  document.getElementById("wordEditorTranslation").value = translations[index] || "";
+  document.getElementById("wordEditorTranscription").value = transcriptions[index] || "";
+  document.getElementById("wordEditorExample").value = examples[index] || "";
+  dialog.showModal();
+  document.getElementById("wordEditorWord").focus();
+}
+
+function cancelWordEdit() {
+  document.getElementById("wordEditorDialog")?.close();
+}
+
+function saveWordEdit() {
+  const dialog = document.getElementById("wordEditorDialog");
+  const index = Number(dialog?.dataset.wordIndex);
+  if (!Number.isInteger(index) || !words[index]) {
+    dialog?.close();
+    return;
+  }
+
+  const origin = wordOrigins[index] || words[index];
+  const originKey = normalizeWordKey(origin);
+  const edited = {
+    word: document.getElementById("wordEditorWord").value.trim(),
+    translation: document.getElementById("wordEditorTranslation").value.trim(),
+    transcription: document.getElementById("wordEditorTranscription").value.trim(),
+    example: document.getElementById("wordEditorExample").value.trim()
+  };
+  const allFieldsEmpty = Object.values(edited).every(value => !value);
+  const edits = getWordEdits();
+
+  if (allFieldsEmpty) {
+    edits[originKey] = { deleted: true };
+    saveWordEdits(edits);
+    dialog.close();
+    removeWordOriginFromCurrentSet(originKey);
+    return;
+  }
+
+  edits[originKey] = edited;
+  saveWordEdits(edits);
+  words.forEach((word, wordIndex) => {
+    if (normalizeWordKey(wordOrigins[wordIndex] || word) !== originKey) return;
+    words[wordIndex] = edited.word;
+    translations[wordIndex] = edited.translation;
+    transcriptions[wordIndex] = edited.transcription;
+    examples[wordIndex] = edited.example;
+  });
+
+  dialog.close();
+  if (currentPhase === 3) showNextCard(null);
+  else if (currentPhase === 4) showPhase2();
+  else if (currentPhase === 5) showPhase3();
+  else if (currentPhase === 6) showNextDictationWord();
+  if (getCurrentVisiblePageId() !== "finishPage") saveLearningProgress();
 }
 
 function getWordKnowledge() {
