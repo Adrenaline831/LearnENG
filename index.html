@@ -55,7 +55,7 @@
     </p>
     <div class="example" id="cardExample"></div>
     <div class="phase-actions">
-      <button onclick="showNextCard(true)">Далее</button>
+      <button onclick="showNextCard(true)">✅</button>
       <button onclick="showNextCard(false)">❌</button>
       <button onclick="repeatPhase()">Повторить этап</button>
       <button onclick="goToNextPage()">Пропустить этап</button>
@@ -1033,7 +1033,7 @@ function generateLevelsMenu() {
   languageLi.classList.add("menu__nav-item");
   const languageBtn = document.createElement("button");
   languageBtn.textContent = `Язык изучения: ${LANGUAGE_LABELS[currentLearningLanguage] || LANGUAGE_LABELS.english}`;
-  languageBtn.classList.add("level-btn");
+  languageBtn.classList.add("level-btn", "menu-folder-label");
   languageLi.appendChild(languageBtn);
 
   const languageWindow = document.createElement("div");
@@ -1137,7 +1137,7 @@ function generateLevelsMenu() {
 
   const favoritesBtn = document.createElement("li");
   favoritesBtn.classList.add("menu__nav-item");
-  favoritesBtn.innerHTML = `<button id="favoritesDictionaryBtn" class="level-btn">Избранные слова</button>`;
+  favoritesBtn.innerHTML = `<button id="favoritesDictionaryBtn" class="level-btn menu-folder-label">Избранные слова</button>`;
   menu.appendChild(favoritesBtn);
   document.getElementById("favoritesDictionaryBtn").addEventListener("click", startDictionaryLesson);
 
@@ -1145,7 +1145,7 @@ function generateLevelsMenu() {
   customDictLi.classList.add("menu__nav-item");
   const customDictBtn = document.createElement("button");
   customDictBtn.textContent = "Мой словарь";
-  customDictBtn.classList.add("level-btn");
+  customDictBtn.classList.add("level-btn", "menu-folder-label");
   customDictLi.appendChild(customDictBtn);
 
   const customDictSubmenu = document.createElement("ul");
@@ -1190,7 +1190,7 @@ function generateLevelsMenu() {
   const repeatLi = document.createElement("li");
   repeatLi.classList.add("menu__nav-item");
   const repeatMenuBtn = document.createElement("button");
-  repeatMenuBtn.classList.add("level-btn");
+  repeatMenuBtn.classList.add("level-btn", "menu-folder-label");
   repeatMenuBtn.innerHTML = 'Повторение <em>(30 слов)</em>';
   repeatMenuBtn.style.textAlign = "left";
   repeatMenuBtn.onclick = startRepeatLesson;
@@ -1246,9 +1246,9 @@ function addSettingsMenu() {
     savePullExamplesFlag(pullExamplesFromJSON);
     syncResetButtonLabel();
     if (!pullExamplesFromJSON) {
-      alert("Примеры из списков скрыты. Примеры, отредактированные вручную, остаются видимыми.");
+      alert("Примеры использования слов отключены");
     } else {
-      alert("Примеры снова включены и будут браться из JSON.");
+      alert("Примеры использования слов подключены");
     }
     updateExampleVisibility();
   };
@@ -1317,8 +1317,8 @@ function addSettingsMenu() {
     themesWindow.style.display = themesWindow.style.display === "block" ? "none" : "block";
   };
 
+  themesLi.appendChild(themesWindow);
   settingsWindow.appendChild(settingsSubmenu);
-  settingsWindow.appendChild(themesWindow);
   settingsLi.appendChild(settingsWindow);
   menu.appendChild(settingsLi);
 
