@@ -349,6 +349,7 @@ function shouldShowBlockWordButton() {
 function updateBlockWordButtonVisibility() {
   const visible = currentPhase >= 3 && currentPhase <= 6 && shouldShowBlockWordButton();
   document.querySelectorAll(".block-word-btn").forEach(button => {
+    button.disabled = false;
     button.classList.toggle("hidden", !visible);
   });
 }
@@ -366,7 +367,9 @@ function filterBlockedWordsFromCurrentList() {
 }
 
 function blockCurrentWord() {
-  const activeIndex = currentPhase === 6 ? dictationQueue[0] : phaseQueue[0];
+  const activeIndex = currentPhase === 6
+    ? (dictationWaiting ? currentIndex : dictationQueue[0])
+    : phaseQueue[0];
   if (!Number.isInteger(activeIndex)) return;
   const blockedWord = String(words[activeIndex] || "").trim();
   const blockedKey = normalizeWordKey(blockedWord);
@@ -1726,6 +1729,7 @@ function checkDictation() {
     // кнопки: пока переход внутрь, отключаем чтобы избежать двойных нажатий
     if (checkBtn) checkBtn.disabled = true;
     if (nextBtn) nextBtn.disabled = true;
+    document.querySelectorAll(".block-word-btn").forEach(button => { button.disabled = true; });
 
     setTimeout(showNextDictationWord, 500);
 
