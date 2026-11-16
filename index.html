@@ -59,7 +59,7 @@
       <button onclick="showNextCard(false)">❌</button>
       <button onclick="repeatPhase()">Повторить этап</button>
       <button onclick="goToNextPage()">Пропустить этап</button>
-      <button type="button" class="block-word-btn hidden" onclick="blockCurrentWord()">Заблокировать слово</button>
+      <button type="button" class="block-word-btn hidden" onclick="openWordEditor()">Редактировать слово</button>
       <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
     </div>
   </div>
@@ -79,7 +79,7 @@
         <button onclick="markAnswer(false)">❌</button>
         <button onclick="repeatPhase()">Повторить этап</button>
         <button onclick="goToNextPage()">Пропустить этап</button>
-        <button type="button" class="block-word-btn hidden" onclick="blockCurrentWord()">Заблокировать слово</button>
+        <button type="button" class="block-word-btn hidden" onclick="openWordEditor()">Редактировать слово</button>
         <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
       </div>
     </div>
@@ -100,7 +100,7 @@
         <button onclick="markAnswer3(false)">❌</button>
         <button onclick="repeatPhase()">Повторить этап</button>
         <button onclick="goToNextPage()">Пропустить этап</button>
-        <button type="button" class="block-word-btn hidden" onclick="blockCurrentWord()">Заблокировать слово</button>
+        <button type="button" class="block-word-btn hidden" onclick="openWordEditor()">Редактировать слово</button>
         <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
       </div>
     </div>
@@ -114,7 +114,7 @@
     <div class="phase-actions">
       <button id="dictationCheckBtn" onclick="checkDictation()">Проверить</button>
       <button id="dictationNextBtn" onclick="nextDictationAfterError()">Следующее</button>
-      <button type="button" class="block-word-btn hidden" onclick="blockCurrentWord()">Заблокировать слово</button>
+      <button type="button" class="block-word-btn hidden" onclick="openWordEditor()">Редактировать слово</button>
       <button type="button" class="return-home-desktop" onclick="returnToManualInput()" aria-label="Вернуться к вводу слов" title="К вводу слов">⟳</button>
     </div>
     <p id="dictation-feedback"></p>
@@ -126,6 +126,22 @@
     <button onclick="backToMenu()">Вернуться к меню</button>
   </div>
 </div>
+
+<dialog id="wordEditorDialog" class="word-editor-dialog" aria-labelledby="wordEditorTitle">
+  <h2 id="wordEditorTitle">Редактировать слово</h2>
+  <label for="wordEditorWord">Слово</label>
+  <input id="wordEditorWord" type="text" autocomplete="off">
+  <label for="wordEditorTranslation">Перевод</label>
+  <input id="wordEditorTranslation" type="text" autocomplete="off">
+  <label for="wordEditorTranscription">Транскрипция</label>
+  <input id="wordEditorTranscription" type="text" autocomplete="off">
+  <label for="wordEditorExample">Пример</label>
+  <textarea id="wordEditorExample" rows="3"></textarea>
+  <div class="word-editor-actions">
+    <button type="button" onclick="cancelWordEdit()">Отмена</button>
+    <button type="button" onclick="saveWordEdit()">Сохранить</button>
+  </div>
+</dialog>
 
 <script>
 /* ====================================================
@@ -751,6 +767,7 @@ function startRepeatLesson() {
   currentLesson = null;
   currentWordSource = "repeat";
   words = foundWords;
+  wordOrigins = words.map(word => String(word || ""));
   transcriptions = foundTranscriptions;
   translations = foundTranslations;
   examples = foundExamples;
@@ -777,6 +794,7 @@ function getCurrentVisiblePageId() {
 function saveLearningProgress() {
   const payload = {
     words,
+    wordOrigins,
     transcriptions,
     translations,
     examples,
@@ -812,6 +830,9 @@ function restoreLearningProgress() {
     if (!Array.isArray(state.words) || state.words.length === 0) return;
 
     words = state.words;
+    wordOrigins = Array.isArray(state.wordOrigins) && state.wordOrigins.length === words.length
+      ? state.wordOrigins
+      : words.map(word => String(word || ""));
     transcriptions = Array.isArray(state.transcriptions) ? state.transcriptions : words.map(() => "");
     translations = Array.isArray(state.translations) ? state.translations : words.map(() => "");
     examples = Array.isArray(state.examples) ? state.examples : words.map(() => "");
@@ -1319,6 +1340,7 @@ function startLesson(level, lessonKey) {
   currentLesson = { level, lessonKey };
   currentWordSource = "builtIn";
   words = baseWords;
+  wordOrigins = words.map(word => String(word || ""));
   transcriptions = lesson.transcriptions || [];
   translations = fallbackTranslations;
   examples = pullExamplesFromJSON ? (lesson.example || []) : words.map(() => "");
@@ -1378,6 +1400,7 @@ let foundWords = [], foundTrans = [], foundTransl = [], foundExamples = [];
   }
 
   words = foundWords;
+  wordOrigins = words.map(word => String(word || ""));
   transcriptions = foundTrans;
   translations = foundTransl;
   examples = foundExamples;
@@ -1420,6 +1443,7 @@ function startCustomLesson(lessonId) {
   currentLesson = null;
   currentWordSource = "custom";
   words = lesson.words || [];
+  wordOrigins = words.map(word => String(word || ""));
   transcriptions = lesson.transcriptions || words.map(() => "");
   translations = lesson.translations || words.map(() => "");
   examples = lesson.examples || words.map(() => "");
@@ -1466,6 +1490,7 @@ function goToTranslations() {
 
 function startSelfLearning() {
   currentWordSource = "custom";
+  wordOrigins = words.map(word => String(word || ""));
   const rawTransl = document.getElementById("translatedWords").value.trim();
   if (!rawTransl) { alert("Введите переводы"); return; }
   translations = rawTransl.split("\n").map(s => s.trim());
@@ -1702,6 +1727,7 @@ function returnToManualInput() {
   currentLesson = null;
   currentLessonElement = null;
   words = [];
+  wordOrigins = [];
   transcriptions = [];
   translations = [];
   examples = [];
