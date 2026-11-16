@@ -880,3 +880,49 @@ input::placeholder {
   padding: 0;
   border-radius: 10px;
 }
+
+
+/* === Редактор слова === */
+.word-editor-dialog {
+  width: min(480px, calc(100vw - 32px));
+  max-height: min(90vh, 760px);
+  overflow-y: auto;
+  color: var(--text-color);
+  background: var(--surface-color);
+  border: 1px solid var(--input-border);
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+.word-editor-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.62);
+}
+
+.word-editor-dialog h2 {
+  margin-top: 0;
+}
+
+.word-editor-dialog label {
+  display: block;
+  margin: 10px 0 4px;
+  font-weight: 700;
+}
+
+.word-editor-dialog input,
+.word-editor-dialog textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.word-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.word-editor-actions button {
+  width: auto;
+}
