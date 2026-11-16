@@ -163,6 +163,7 @@ let phaseQueue = [];
 let dictationQueue = [];
 let dictationWaiting = false;
 let pullExamplesFromJSON = true;
+let showTranscriptions = true;
 let lastSpokenWord = "";
 let slowMode = false;
 let currentTheme = "theme-classic-dark";
@@ -178,6 +179,7 @@ const CUSTOM_DICTIONARY_STORAGE_KEY = "customDictionaryLessons";
 const FINISHED_LESSONS_KEY_PREFIX = "finishedLessons";
 const THEME_STORAGE_KEY = "selectedTheme";
 const EXAMPLE_MODE_STORAGE_KEY = "pullExamplesFromJSON";
+const TRANSCRIPTION_MODE_STORAGE_KEY = "showTranscriptions";
 const LEARNING_LANGUAGE_STORAGE_KEY = "learningLanguage";
 const LEARNING_PROGRESS_STORAGE_KEY = "learningProgressState";
 const BLOCKED_WORDS_STORAGE_KEY_PREFIX = "blockedWords";
@@ -281,6 +283,29 @@ function savePullExamplesFlag(value) {
   localStorage.setItem(EXAMPLE_MODE_STORAGE_KEY, String(value));
 }
 
+function getShowTranscriptionsFlag() {
+  const saved = localStorage.getItem(TRANSCRIPTION_MODE_STORAGE_KEY);
+  return saved === null ? true : saved === "true";
+}
+
+function saveShowTranscriptionsFlag(value) {
+  localStorage.setItem(TRANSCRIPTION_MODE_STORAGE_KEY, String(value));
+}
+
+function updateTranscriptionVisibility() {
+  const index = currentPhase === 3 ? phaseQueue[0] : getCurrentIndex();
+  const cardWord = document.querySelector("#card .word-prompt-text strong");
+  if (currentPhase === 3 && cardWord && Number.isInteger(index) && words[index]) {
+    cardWord.textContent = formatWordWithTranscription(words[index], transcriptions[index]);
+  }
+
+  const answer = document.getElementById("phase3-answer");
+  const answerSection = document.getElementById("answerSection3");
+  if (currentPhase === 5 && answer && answerSection && !answerSection.classList.contains("hidden") && Number.isInteger(index) && words[index]) {
+    answer.textContent = formatWordWithTranscription(words[index], transcriptions[index]);
+  }
+}
+
 function updateExampleVisibility() {
   const wordEdits = getWordEdits();
   document.querySelectorAll(".example").forEach(example => {
@@ -298,7 +323,7 @@ function returnHomeButtonMarkup() {
 }
 
 function formatWordWithTranscription(word, transcription) {
-  const cleanTranscription = String(transcription || "").trim();
+  const cleanTranscription = showTranscriptions ? String(transcription || "").trim() : "";
   return cleanTranscription ? `${word} [${cleanTranscription}]` : String(word || "");
 }
 
@@ -312,6 +337,7 @@ function applyTheme(themeId) {
 
 function loadSavedPreferences() {
   pullExamplesFromJSON = getPullExamplesFlag();
+  showTranscriptions = getShowTranscriptionsFlag();
   updateExampleVisibility();
   const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
   // Старый theme-default сохранялся автоматически как стартовая тема Fresh Green.
@@ -1255,6 +1281,25 @@ function addSettingsMenu() {
   examplesLi.appendChild(resetBtn);
   settingsSubmenu.appendChild(examplesLi);
 
+  const transcriptionsLi = document.createElement("li");
+  const transcriptionsBtn = document.createElement("button");
+  const syncTranscriptionsButtonLabel = () => {
+    transcriptionsBtn.textContent = showTranscriptions ? "Убрать транскрипции" : "Вернуть транскрипции";
+  };
+  syncTranscriptionsButtonLabel();
+  transcriptionsBtn.style.display = "block";
+  transcriptionsBtn.style.width = "100%";
+  transcriptionsBtn.style.marginTop = "6px";
+  transcriptionsBtn.onclick = () => {
+    showTranscriptions = !showTranscriptions;
+    saveShowTranscriptionsFlag(showTranscriptions);
+    syncTranscriptionsButtonLabel();
+    updateTranscriptionVisibility();
+    alert(showTranscriptions ? "Транскрипции подключены" : "Транскрипции отключены");
+  };
+  transcriptionsLi.appendChild(transcriptionsBtn);
+  settingsSubmenu.appendChild(transcriptionsLi);
+
   const blockEditingLi = document.createElement("li");
   const blockEditingBtn = document.createElement("button");
   const syncBlockEditingLabel = () => {
@@ -1328,6 +1373,7 @@ function addSettingsMenu() {
     settingsWindow.style.display = isShown ? "none" : "block";
     if (!isShown) {
       syncResetButtonLabel();
+      syncTranscriptionsButtonLabel();
       syncBlockEditingLabel();
       renderThemeButtons();
     }
