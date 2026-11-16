@@ -1217,7 +1217,7 @@ function startLesson(level, lessonKey) {
   translations = fallbackTranslations;
   examples = pullExamplesFromJSON ? (lesson.example || []) : words.map(() => "");
   filterBlockedWordsFromCurrentList();
-  if (words.length === 0) { alert("Все слова этого блока заблокированы."); return; }
+  // Пустой после блокировок встроенный урок проходит обычную цепочку этапов без карточек.
   currentPhase = 3;
   currentIndex = 0;
   wrongQueue = [];
